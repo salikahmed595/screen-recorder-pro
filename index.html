@@ -117,7 +117,12 @@ select:focus{border-color:var(--accent)}
   max-width:860px;width:100%
 }
 #preview-modal video{width:100%;border-radius:10px;max-height:60vh}
-.modal-actions{display:flex;gap:10px;margin-top:14px;justify-content:flex-end}
+.modal-meta{font-size:12px;color:var(--sub);margin-top:10px;display:flex;align-items:center;gap:10px}
+.fmt-badge{background:var(--surface2);border:1px solid #333;border-radius:5px;padding:2px 8px;font-weight:600;font-size:11px;letter-spacing:.5px}
+.fmt-badge.mp4{border-color:var(--green);color:var(--green)}
+.fmt-badge.webm{border-color:var(--accent);color:var(--accent)}
+.modal-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap}
+#mp4Unavail{font-size:11px;color:var(--sub);margin-top:6px;text-align:right;display:none}
 
 /* ── Hotkey hint ── */
 .keys{font-size:11px;color:var(--sub);margin-top:8px}
@@ -238,12 +243,19 @@ select:focus{border-color:var(--accent)}
 <!-- Preview-before-download modal -->
 <div id="preview-modal">
   <div class="modal-box">
-    <h3 style="margin-bottom:12px">Preview recording</h3>
+    <h3 style="margin-bottom:10px">Preview recording</h3>
     <video id="previewVid" controls></video>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="discardBtn">🗑 Discard</button>
-      <button class="btn btn-primary" id="downloadBtn">⬇ Download .webm</button>
+    <div class="modal-meta">
+      <span id="fmtWebm" class="fmt-badge webm">WebM</span>
+      <span id="fmtMp4"  class="fmt-badge mp4"  style="display:none">MP4</span>
+      <span id="recSize"></span>
     </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost"   id="discardBtn">🗑 Discard</button>
+      <button class="btn btn-ghost"   id="dlWebmBtn">⬇ Save as WebM</button>
+      <button class="btn btn-primary" id="dlMp4Btn">⬇ Save as MP4</button>
+    </div>
+    <div id="mp4Unavail">⚠ MP4 recording not supported in this browser — WebM plays in Chrome, Edge &amp; VLC</div>
   </div>
 </div>
 
@@ -263,18 +275,28 @@ const viewLabel    = $('viewLabel');
 const drawBar      = $('draw-bar');
 const previewModal = $('preview-modal');
 const previewVid   = $('previewVid');
-const downloadBtn  = $('downloadBtn'), discardBtn  = $('discardBtn');
+const dlWebmBtn    = $('dlWebmBtn'),   dlMp4Btn    = $('dlMp4Btn');
+const discardBtn   = $('discardBtn');
 const camPosOpt    = $('opt-campos'),  camShapeOpt = $('opt-camshape');
 const camSizeOpt   = $('opt-camsize');
 const colorDot     = $('colorPick'),   colorInput  = $('colorInput');
 
+// ── MP4 native support detection ──────────────────────────────────────
+const MP4_MIME = [
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+  'video/mp4;codecs=h264,aac',
+  'video/mp4',
+].find(t => MediaRecorder.isTypeSupported(t)) || null;
+
 // ── State ─────────────────────────────────────────────────────────────
-let recorder    = null, chunks    = [];
+let recWebm  = null, chunksWebm = [];   // always recorded
+let recMp4   = null, chunksMp4  = [];   // recorded only if MP4 supported
+let blobWebm = null, blobMp4    = null;
+let stopCount= 0;
 let screenStream= null, camStream = null, audioCtx = null;
 let drawVid     = null, vfcId    = null;
 let timerIntvl  = null, elapsedSec= 0;
 let meterRaf    = null, analyser  = null;
-let savedBlob   = null;
 
 // Drawing state (laser/pen on composite canvas)
 let drawMode    = null; // 'laser'|'pen'|null
@@ -547,7 +569,9 @@ colorInput.addEventListener('input', e=>{
 
 // ── Main recording flow ───────────────────────────────────────────────
 async function start(){
-  chunks = []; savedBlob = null;
+  chunksWebm = []; chunksMp4 = [];
+  blobWebm = null; blobMp4 = null; stopCount = 0;
+  recWebm = null; recMp4 = null;
   screenStream = camStream = audioCtx = null;
   drawVid = null; vfcId = null;
 
@@ -618,13 +642,23 @@ async function start(){
 
     await runCountdown(3);
 
-    recorder = new MediaRecorder(recStream, {
+    const expectedStops = MP4_MIME ? 2 : 1;
+    const handleStop = () => { stopCount++; if(stopCount >= expectedStops) onStop(); };
+
+    recWebm = new MediaRecorder(recStream, {
       mimeType: 'video/webm;codecs=vp8,opus',
       videoBitsPerSecond: bitrate,
     });
-    recorder.ondataavailable = e => { if(e.data?.size > 0) chunks.push(e.data); };
-    recorder.onstop = onStop;
-    recorder.start(100);
+    recWebm.ondataavailable = e => { if(e.data?.size > 0) chunksWebm.push(e.data); };
+    recWebm.onstop = handleStop;
+    recWebm.start(100);
+
+    if(MP4_MIME){
+      recMp4 = new MediaRecorder(recStream, { mimeType: MP4_MIME, videoBitsPerSecond: bitrate });
+      recMp4.ondataavailable = e => { if(e.data?.size > 0) chunksMp4.push(e.data); };
+      recMp4.onstop = handleStop;
+      recMp4.start(100);
+    }
 
     startTimer();
     startMeter();
@@ -643,8 +677,8 @@ async function start(){
 }
 
 function pause(){
-  if(recorder?.state === 'recording'){
-    recorder.pause();
+  if(recWebm?.state === 'recording'){
+    recWebm.pause(); recMp4?.pause();
     setStatus('Paused');
     clearInterval(timerIntvl);
     pauseBtn.disabled  = true;
@@ -654,8 +688,8 @@ function pause(){
 }
 
 function resume(){
-  if(recorder?.state === 'paused'){
-    recorder.resume();
+  if(recWebm?.state === 'paused'){
+    recWebm.resume(); recMp4?.resume();
     setStatus('Recording…');
     timerIntvl = setInterval(()=>{ elapsedSec++; timerEl.textContent=fmtTime(elapsedSec); }, 1000);
     resumeBtn.disabled = true;
@@ -665,18 +699,33 @@ function resume(){
 }
 
 function stop(){
-  recorder?.stop();
-  // cleanup called after onStop shows preview
+  recWebm?.stop();
+  recMp4?.stop();
 }
 
+function fmtSize(bytes){ return (bytes/1024/1024).toFixed(1)+' MB'; }
+
 function onStop(){
-  stopTimer();
-  stopMeter();
-  savedBlob = new Blob(chunks, {type:'video/webm'});
-  const url = URL.createObjectURL(savedBlob);
-  previewVid.src = url;
+  stopTimer(); stopMeter();
+
+  blobWebm = new Blob(chunksWebm, {type:'video/webm'});
+  blobMp4  = chunksMp4.length ? new Blob(chunksMp4, {type:'video/mp4'}) : null;
+
+  // Show format badges
+  $('fmtWebm').style.display = 'inline';
+  $('fmtMp4').style.display  = blobMp4 ? 'inline' : 'none';
+  $('recSize').textContent   = blobMp4
+    ? `WebM ${fmtSize(blobWebm.size)} · MP4 ${fmtSize(blobMp4.size)}`
+    : fmtSize(blobWebm.size);
+
+  // MP4 button: enabled only if native MP4 was recorded
+  dlMp4Btn.disabled = !blobMp4;
+  dlMp4Btn.title    = blobMp4 ? '' : 'MP4 not supported in this browser';
+  $('mp4Unavail').style.display = blobMp4 ? 'none' : 'block';
+
+  previewVid.src = URL.createObjectURL(blobWebm);
   previewModal.style.display = 'flex';
-  cleanup(false); // clean streams but keep UI going for modal
+  cleanup(false);
 }
 
 function cleanup(resetUI = true){
@@ -700,25 +749,52 @@ function cleanup(resetUI = true){
   setStatus('Ready');
 }
 
-// ── Preview modal ─────────────────────────────────────────────────────
-downloadBtn.addEventListener('click', ()=>{
-  if(!savedBlob) return;
+// ── Save-As helper (uses native file picker; falls back to <a download>) ─
+async function saveAs(blob, suggestedName){
+  if('showSaveFilePicker' in window){
+    const ext = suggestedName.split('.').pop();
+    const mimeMap = { mp4:'video/mp4', webm:'video/webm' };
+    try{
+      const fh = await showSaveFilePicker({
+        suggestedName,
+        types:[{
+          description: ext.toUpperCase()+' video',
+          accept:{ [mimeMap[ext]||'video/webm']: ['.'+ext] }
+        }]
+      });
+      const ws = await fh.createWritable();
+      await ws.write(blob);
+      await ws.close();
+      return;
+    }catch(e){ if(e.name==='AbortError') return; }
+  }
+  // Fallback for browsers without showSaveFilePicker
   const a = Object.assign(document.createElement('a'),{
-    href: URL.createObjectURL(savedBlob),
-    download: 'recording-' + Date.now() + '.webm'
+    href: URL.createObjectURL(blob),
+    download: suggestedName
   });
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+// ── Preview modal ─────────────────────────────────────────────────────
+dlWebmBtn.addEventListener('click', async ()=>{
+  if(!blobWebm) return;
+  await saveAs(blobWebm, 'recording-'+Date.now()+'.webm');
+  closePreview();
+});
+dlMp4Btn.addEventListener('click', async ()=>{
+  if(!blobMp4) return;
+  await saveAs(blobMp4, 'recording-'+Date.now()+'.mp4');
   closePreview();
 });
 discardBtn.addEventListener('click', ()=>{
-  savedBlob = null;
+  blobWebm = null; blobMp4 = null;
   closePreview();
 });
 function closePreview(){
   previewModal.style.display = 'none';
-  URL.revokeObjectURL(previewVid.src);
-  previewVid.src = '';
+  URL.revokeObjectURL(previewVid.src); previewVid.src = '';
   viewEl.style.display = 'none';
   disableDrawing();
 }
@@ -734,7 +810,7 @@ document.addEventListener('keydown', e => {
   if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   if(e.code === 'Space' && !startBtn.disabled){
     e.preventDefault();
-    recorder?.state === 'paused' ? resume() : pause();
+    recWebm?.state === 'paused' ? resume() : pause();
   }
   if(e.code === 'Escape' && !stopBtn.disabled) stop();
   if(e.code === 'KeyS'   && !screenshotBtn.disabled) takeScreenshot();
