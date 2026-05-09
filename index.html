@@ -558,11 +558,13 @@ async function start(){
 
     if(m === 'screen'){
       setStatus('Waiting for screen share…');
-      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+      // Ask for screen WITHOUT system audio to avoid double-voice when OS pipes mic into system audio
+      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
+      // Mic captured once, cleanly, via its own getUserMedia call
       let mic = null;
       try{ mic = await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }catch(_){}
       videoTrack = screenStream.getVideoTracks()[0];
-      audioTrack = mixAudio(screenStream, mic);
+      audioTrack = mic ? mixAudio(mic) : null;
       mainVideo.srcObject = screenStream;
       mainVideo.style.display = 'block';
       composite.style.display = 'none';
@@ -574,6 +576,7 @@ async function start(){
       setStatus('Waiting for camera…');
       camStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
       videoTrack = camStream.getVideoTracks()[0];
+      // Only one audio source — no doubling possible
       audioTrack = mixAudio(camStream);
       mainVideo.srcObject = camStream;
       mainVideo.style.display = 'block';
@@ -584,7 +587,8 @@ async function start(){
 
     } else {
       setStatus('Step 1: Pick a Chrome Tab to record…');
-      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+      // No system audio from screen — mic comes exclusively from camStream
+      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
       setStatus('Step 2: Allow camera & mic…');
       camStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
       setStatus('Building composite…');
@@ -606,7 +610,8 @@ async function start(){
 
       const canvasStream = composite.captureStream(30);
       videoTrack = canvasStream.getVideoTracks()[0];
-      audioTrack = mixAudio(screenStream, camStream);
+      // Single audio source = camera mic only — eliminates all doubling
+      audioTrack = mixAudio(camStream);
     }
 
     const recStream = new MediaStream([videoTrack, audioTrack].filter(Boolean));
@@ -734,6 +739,30 @@ document.addEventListener('keydown', e => {
   if(e.code === 'Escape' && !stopBtn.disabled) stop();
   if(e.code === 'KeyS'   && !screenshotBtn.disabled) takeScreenshot();
 });
+
+// ── URL auto-start ────────────────────────────────────────────────────
+// Usage:
+//   ?start=screen        → open and auto-start screen recording
+//   ?start=camera        → open and auto-start camera recording
+//   ?start=both          → open and auto-start screen+camera recording
+// Examples:
+//   salikahmed595.github.io/screen-recorder-pro/?start=both
+//   salikahmed595.github.io/screen-recorder-pro/?start=screen
+(function(){
+  const p = new URLSearchParams(location.search);
+  const s = p.get('start');
+  if(!s) return;
+  const map = { screen:'screen', camera:'camera', both:'both', cam:'camera', all:'both' };
+  const mode = map[s.toLowerCase()];
+  if(!mode) return;
+  // Select the matching radio
+  const radio = document.querySelector(`input[name="mode"][value="${mode}"]`);
+  if(radio){
+    radio.click(); // triggers mode-card UI update
+  }
+  // Auto-start after a tiny delay so the page finishes rendering
+  setTimeout(()=> startBtn.click(), 400);
+})();
 </script>
 </body>
 </html>
