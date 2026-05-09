@@ -2,7 +2,8 @@ name: Build Windows .exe
 
 on:
   push:
-    branches: [master]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -22,44 +23,38 @@ jobs:
         run: npm install
 
       - name: Build Windows installer + portable exe
-        run: npm run build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish never
 
-      - name: Get version from package.json
-        id: pkg
-        run: |
-          $v = (Get-Content package.json | ConvertFrom-Json).version
-          echo "version=$v" >> $env:GITHUB_OUTPUT
+      - name: List built files
+        run: Get-ChildItem dist\*.exe | Select-Object Name, Length
 
       - name: Create GitHub Release and upload .exe files
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.pkg.outputs.version }}
-          name: "Screen Recorder Pro v${{ steps.pkg.outputs.version }}"
+          name: "Screen Recorder Pro ${{ github.ref_name }}"
           body: |
-            ## 🎬 Screen Recorder Pro v${{ steps.pkg.outputs.version }}
+            ## 🎬 Screen Recorder Pro ${{ github.ref_name }}
 
-            ### Download
-            | File | Description |
+            ### ⬇️ Download
+
+            | File | What it does |
             |------|-------------|
-            | `Screen-Recorder-Pro-Setup-*.exe` | **Installer** — installs the app with Start Menu & Desktop shortcut |
-            | `ScreenRecorderPro-portable.exe` | **Portable** — run directly, no install needed |
+            | `Screen-Recorder-Pro-Setup-*.exe` | **Installer** — installs with Desktop & Start Menu shortcut, uninstallable |
+            | `ScreenRecorderPro-portable.exe` | **Portable** — double-click and run, no install needed |
 
-            ### Features
-            - 🖥️ Screen recording (any tab or window)
+            ### ✨ Features
+            - 🖥️ Screen recording (any Chrome tab or window)
             - 🎬 Screen + Camera face overlay (Loom-style)
-            - 🎙️ Voice recording (echo-free)
-            - ✏️ Laser pointer & pen annotation
-            - 📸 Screenshots during recording
+            - 🎙️ Voice recording — echo-free
+            - ✏️ Laser pointer & pen annotation during recording
+            - 📸 Screenshot capture anytime
             - ⏱️ Live timer & audio meter
-            - 💾 Downloads as `.webm` locally — no cloud upload
+            - 🎚️ Quality presets (1–8 Mbps)
+            - 💾 Saves `.webm` locally — no cloud, no upload, 100% private
 
-            ### System Requirements
-            - Windows 10 / 11 (64-bit)
-            - No additional software needed
-          files: |
-            dist/*.exe
+            ### 💻 Requirements
+            Windows 10 / 11 (64-bit) — no other software needed
+          files: dist/*.exe
           draft: false
           prerelease: false
           make_latest: true
