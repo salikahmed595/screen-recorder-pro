@@ -68,6 +68,32 @@ select:focus{border-color:var(--accent)}
 .rec-dot{width:10px;height:10px;border-radius:50%;background:var(--red);display:none;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
+/* ── Mic toggle ── */
+.mic-toggle{
+  display:flex;flex-direction:column;gap:4px
+}
+.mic-toggle label{font-size:11px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.mic-pill{
+  display:flex;align-items:center;gap:8px;background:var(--surface2);
+  border:1px solid #333;border-radius:8px;padding:5px 12px;cursor:pointer;
+  user-select:none;transition:border-color .15s
+}
+.mic-pill.on {border-color:var(--green)}
+.mic-pill.off{border-color:var(--red)}
+.mic-icon{font-size:15px;line-height:1}
+.mic-label{font-size:13px;font-weight:600;min-width:22px}
+.mic-track{
+  width:34px;height:18px;border-radius:9px;background:#444;
+  position:relative;transition:background .2s;flex-shrink:0
+}
+.mic-pill.on  .mic-track{background:var(--green)}
+.mic-pill.off .mic-track{background:var(--red)}
+.mic-thumb{
+  width:12px;height:12px;border-radius:50%;background:#fff;
+  position:absolute;top:3px;left:3px;transition:left .2s
+}
+.mic-pill.on .mic-thumb{left:19px}
+
 /* ── Audio meter ── */
 #meter-wrap{display:none;flex-direction:column;gap:2px}
 #meter-wrap span{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
@@ -190,6 +216,14 @@ select:focus{border-color:var(--accent)}
     <label>Cam size</label>
     <input type="range" id="camSizeRange" min="10" max="35" value="22" style="width:90px"/>
   </div>
+  <div class="mic-toggle">
+    <label>Microphone</label>
+    <div class="mic-pill on" id="micToggle" title="Toggle microphone on/off">
+      <span class="mic-icon" id="micIcon">🎙️</span>
+      <span class="mic-label" id="micLabel">On</span>
+      <div class="mic-track"><div class="mic-thumb"></div></div>
+    </div>
+  </div>
 </div>
 
 <!-- Step-by-step instructions -->
@@ -280,6 +314,17 @@ const discardBtn   = $('discardBtn');
 const camPosOpt    = $('opt-campos'),  camShapeOpt = $('opt-camshape');
 const camSizeOpt   = $('opt-camsize');
 const colorDot     = $('colorPick'),   colorInput  = $('colorInput');
+
+// ── Mic toggle ────────────────────────────────────────────────────────
+let micOn = true;
+$('micToggle').addEventListener('click', ()=>{
+  micOn = !micOn;
+  const el = $('micToggle');
+  el.classList.toggle('on',  micOn);
+  el.classList.toggle('off', !micOn);
+  $('micIcon').textContent  = micOn ? '🎙️' : '🔇';
+  $('micLabel').textContent = micOn ? 'On' : 'Off';
+});
 
 // ── MP4 native support detection ──────────────────────────────────────
 const MP4_MIME = [
@@ -582,11 +627,9 @@ async function start(){
 
     if(m === 'screen'){
       setStatus('Waiting for screen share…');
-      // Ask for screen WITHOUT system audio to avoid double-voice when OS pipes mic into system audio
       screenStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
-      // Mic captured once, cleanly, via its own getUserMedia call
       let mic = null;
-      try{ mic = await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }catch(_){}
+      if(micOn){ try{ mic = await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }catch(_){} }
       videoTrack = screenStream.getVideoTracks()[0];
       audioTrack = mic ? mixAudio(mic) : null;
       mainVideo.srcObject = screenStream;
@@ -598,10 +641,9 @@ async function start(){
 
     } else if(m === 'camera'){
       setStatus('Waiting for camera…');
-      camStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+      camStream = await navigator.mediaDevices.getUserMedia({video:true, audio:micOn});
       videoTrack = camStream.getVideoTracks()[0];
-      // Only one audio source — no doubling possible
-      audioTrack = mixAudio(camStream);
+      audioTrack = micOn ? mixAudio(camStream) : null;
       mainVideo.srcObject = camStream;
       mainVideo.style.display = 'block';
       composite.style.display = 'none';
@@ -634,8 +676,7 @@ async function start(){
 
       const canvasStream = composite.captureStream(30);
       videoTrack = canvasStream.getVideoTracks()[0];
-      // Single audio source = camera mic only — eliminates all doubling
-      audioTrack = mixAudio(camStream);
+      audioTrack = micOn ? mixAudio(camStream) : null;
     }
 
     const recStream = new MediaStream([videoTrack, audioTrack].filter(Boolean));
