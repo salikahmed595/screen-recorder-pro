@@ -1,0 +1,67 @@
+name: Build Windows .exe
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows installer + portable exe
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from package.json
+        id: pkg
+        run: |
+          $v = (Get-Content package.json | ConvertFrom-Json).version
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release and upload .exe files
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.pkg.outputs.version }}
+          name: "Screen Recorder Pro v${{ steps.pkg.outputs.version }}"
+          body: |
+            ## 🎬 Screen Recorder Pro v${{ steps.pkg.outputs.version }}
+
+            ### Download
+            | File | Description |
+            |------|-------------|
+            | `Screen-Recorder-Pro-Setup-*.exe` | **Installer** — installs the app with Start Menu & Desktop shortcut |
+            | `ScreenRecorderPro-portable.exe` | **Portable** — run directly, no install needed |
+
+            ### Features
+            - 🖥️ Screen recording (any tab or window)
+            - 🎬 Screen + Camera face overlay (Loom-style)
+            - 🎙️ Voice recording (echo-free)
+            - ✏️ Laser pointer & pen annotation
+            - 📸 Screenshots during recording
+            - ⏱️ Live timer & audio meter
+            - 💾 Downloads as `.webm` locally — no cloud upload
+
+            ### System Requirements
+            - Windows 10 / 11 (64-bit)
+            - No additional software needed
+          files: |
+            dist/*.exe
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

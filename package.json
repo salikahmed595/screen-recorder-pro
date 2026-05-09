@@ -1,0 +1,56 @@
+{
+  "name": "screen-recorder-pro",
+  "version": "1.0.0",
+  "description": "Free screen recorder with face cam overlay, voice, and instant download",
+  "main": "main.js",
+  "author": "salikahmed595",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.salikahmed595.screenrecorderpro",
+    "productName": "Screen Recorder Pro",
+    "copyright": "Copyright © 2026 salikahmed595",
+    "files": [
+      "index.html",
+      "main.js",
+      "assets/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Screen Recorder Pro"
+    },
+    "portable": {
+      "artifactName": "ScreenRecorderPro-portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  }
+}
