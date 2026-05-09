@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Screen Recorder Pro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#252836;
+  --accent:#6c63ff;--accent2:#ff6584;--text:#e8eaf6;--sub:#9095a8;
+  --red:#ef4444;--green:#22c55e;--yellow:#f59e0b;
+}
+html,body{width:480px;min-height:680px;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
+body{padding:18px 16px}
+
+h1{font-size:17px;font-weight:700;letter-spacing:.4px;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--red);display:none;animation:pulse 1.2s ease-in-out infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.sub{color:var(--sub);font-size:12px;margin-bottom:16px}
+
+/* mode cards */
+.modes{display:flex;gap:8px;margin-bottom:14px}
+.mode-card{flex:1;padding:10px 8px;border-radius:10px;background:var(--surface);border:2px solid transparent;cursor:pointer;text-align:center;user-select:none;transition:border .15s,background .15s}
+.mode-card:hover{background:var(--surface2)}
+.mode-card.active{border-color:var(--accent);background:var(--surface2)}
+.mode-card input{display:none}
+.mode-card .icon{font-size:20px;margin-bottom:4px}
+.mode-card .lbl{font-size:12px;font-weight:600}
+
+/* options */
+.opts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.opt{display:flex;flex-direction:column;gap:3px}
+.opt label{font-size:10px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+select,input[type=range]{background:var(--surface2);border:1px solid #333;color:var(--text);padding:4px 8px;border-radius:7px;font-size:12px;outline:none;cursor:pointer}
+
+/* instruction */
+#instr{background:var(--surface);border-left:3px solid var(--accent);border-radius:7px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.7;display:none}
+#instr b{color:var(--accent)} #instr .w{color:var(--accent2)}
+
+/* controls */
+.ctrl{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.btn{padding:8px 16px;border-radius:9px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;letter-spacing:.3px}
+.btn:disabled{opacity:.3;cursor:default}
+.btn:not(:disabled):active{transform:scale(.96)}
+.btn-p{background:var(--accent);color:#fff}
+.btn-d{background:var(--red);color:#fff}
+.btn-w{background:var(--yellow);color:#000}
+.btn-g{background:var(--surface2);color:var(--text);border:1px solid #333}
+
+/* status */
+.sbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;min-height:26px}
+#status{font-size:13px;font-weight:600}
+#timer{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);display:none;letter-spacing:1px}
+
+/* meter */
+#mwrap{display:none;flex-direction:column;gap:2px}
+#mwrap span{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px}
+#meter{width:100px;height:7px;background:var(--surface2);border-radius:4px;overflow:hidden}
+#mbar{height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));border-radius:4px;transition:width .07s}
+
+/* countdown */
+#cd{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:999;font-size:100px;font-weight:900;color:#fff;text-shadow:0 4px 28px rgba(108,99,255,.8)}
+
+/* view */
+#view{width:100%;background:#000;display:none;border-radius:10px;overflow:hidden;position:relative;margin-top:4px}
+#mainV{width:100%;display:block}
+#canvas{width:100%;display:none}
+
+/* draw bar */
+#dbar{position:absolute;top:8px;right:8px;display:none;flex-direction:column;gap:5px;z-index:10}
+.db{width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;font-size:14px;background:rgba(20,20,30,.75);color:#fff;backdrop-filter:blur(4px)}
+.db.on{background:var(--accent)}
+#cpick{width:16px;height:16px;border-radius:50%;border:2px solid #fff;cursor:pointer;margin:0 auto}
+
+/* keys */
+.keys{font-size:10px;color:var(--sub);margin-top:8px}
+.keys kbd{background:var(--surface2);border:1px solid #444;border-radius:3px;padding:1px 4px;font-family:monospace;font-size:10px}
+
+/* preview modal */
+#pm{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:1000;padding:12px}
+#pm .box{background:var(--surface);border-radius:14px;padding:16px;width:100%}
+#pm video{width:100%;border-radius:8px;max-height:280px}
+.ma{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<h1><div class="dot" id="dot"></div>Screen Recorder Pro</h1>
+<p class="sub">Record screen · camera · voice — saved locally</p>
+
+<div class="modes">
+  <label class="mode-card active">
+    <input type="radio" name="mode" value="screen" checked/>
+    <div class="icon">🖥️</div><div class="lbl">Screen</div>
+  </label>
+  <label class="mode-card">
+    <input type="radio" name="mode" value="camera"/>
+    <div class="icon">📷</div><div class="lbl">Camera</div>
+  </label>
+  <label class="mode-card">
+    <input type="radio" name="mode" value="both"/>
+    <div class="icon">🎬</div><div class="lbl">Screen+Cam</div>
+  </label>
+</div>
+
+<div class="opts">
+  <div class="opt">
+    <label>Quality</label>
+    <select id="q">
+      <option value="8000000">Ultra 8Mbps</option>
+      <option value="4000000" selected>High 4Mbps</option>
+      <option value="2000000">Med 2Mbps</option>
+      <option value="1000000">Low 1Mbps</option>
+    </select>
+  </div>
+  <div class="opt" id="opos" style="display:none">
+    <label>Cam pos</label>
+    <select id="pos">
+      <option value="br" selected>Bottom-right</option>
+      <option value="bl">Bottom-left</option>
+      <option value="tr">Top-right</option>
+      <option value="tl">Top-left</option>
+    </select>
+  </div>
+  <div class="opt" id="oshp" style="display:none">
+    <label>Cam shape</label>
+    <select id="shp">
+      <option value="round" selected>Circle</option>
+      <option value="rect">Rectangle</option>
+    </select>
+  </div>
+  <div class="opt" id="osz" style="display:none">
+    <label>Cam size</label>
+    <input type="range" id="csz" min="10" max="35" value="22" style="width:80px"/>
+  </div>
+</div>
+
+<div id="instr"></div>
+
+<div class="ctrl">
+  <button class="btn btn-p" id="startBtn">▶ Start</button>
+  <button class="btn btn-w"  id="pauseBtn"  disabled>⏸ Pause</button>
+  <button class="btn btn-g"  id="resumeBtn" disabled>⏵ Resume</button>
+  <button class="btn btn-d"  id="stopBtn"   disabled>⏹ Stop</button>
+  <button class="btn btn-g"  id="ssBtn"     disabled title="Screenshot">📸</button>
+</div>
+
+<div class="sbar">
+  <div id="status">Ready</div>
+  <div id="timer">00:00</div>
+  <div id="mwrap"><span>Audio</span><div id="meter"><div id="mbar"></div></div></div>
+</div>
+
+<div class="keys"><kbd>Space</kbd> Pause/Resume &nbsp;<kbd>Esc</kbd> Stop &nbsp;<kbd>S</kbd> Screenshot</div>
+
+<div id="cd"></div>
+
+<div id="view">
+  <video id="mainV" autoplay muted playsinline></video>
+  <canvas id="canvas"></canvas>
+  <div id="dbar">
+    <button class="db" id="laserBtn" title="Laser">🔴</button>
+    <button class="db" id="penBtn"   title="Draw">✏️</button>
+    <div id="cpick" style="background:#ff6584"></div>
+    <input type="color" id="ci" value="#ff6584" style="display:none"/>
+  </div>
+</div>
+
+<div id="pm">
+  <div class="box">
+    <h3 style="margin-bottom:10px;font-size:15px">Preview recording</h3>
+    <video id="pvid" controls></video>
+    <div class="ma">
+      <button class="btn btn-g" id="discBtn">🗑 Discard</button>
+      <button class="btn btn-p" id="dlBtn">⬇ Download .webm</button>
+    </div>
+  </div>
+</div>
+
+<script src="recorder.js"></script>
+</body>
+</html>
