@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Screen Recorder Pro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#252836;
+  --accent:#6c63ff;--accent2:#ff6584;--text:#e8eaf6;--sub:#9095a8;
+  --red:#ef4444;--green:#22c55e;--yellow:#f59e0b;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px 20px}
+h1{font-size:22px;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+.subtitle{color:var(--sub);font-size:13px;margin-bottom:24px}
+
+/* ── Mode cards ── */
+.mode-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.mode-card{
+  flex:1;min-width:130px;padding:14px 16px;border-radius:12px;
+  background:var(--surface);border:2px solid transparent;cursor:pointer;
+  transition:border .15s,background .15s;user-select:none
+}
+.mode-card:hover{background:var(--surface2)}
+.mode-card.active{border-color:var(--accent);background:var(--surface2)}
+.mode-card input{display:none}
+.mode-card .icon{font-size:22px;margin-bottom:6px}
+.mode-card .label{font-weight:600;font-size:14px}
+.mode-card .desc{color:var(--sub);font-size:11px;margin-top:3px}
+
+/* ── Options row ── */
+.options{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.opt-group{display:flex;flex-direction:column;gap:4px}
+.opt-group label{font-size:11px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+select,input[type=range]{
+  background:var(--surface2);border:1px solid #333;color:var(--text);
+  padding:5px 10px;border-radius:8px;font-size:13px;outline:none;cursor:pointer
+}
+select:focus{border-color:var(--accent)}
+
+/* ── Instruction box ── */
+#instr{
+  background:var(--surface);border-left:3px solid var(--accent);
+  border-radius:8px;padding:12px 16px;margin-bottom:16px;
+  font-size:13px;line-height:1.8;display:none
+}
+#instr b{color:var(--accent)}
+#instr .warn{color:var(--accent2)}
+
+/* ── Controls ── */
+.ctrl-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.btn{
+  padding:9px 22px;border-radius:10px;border:none;font-size:14px;font-weight:600;
+  cursor:pointer;transition:opacity .15s,transform .1s;letter-spacing:.3px
+}
+.btn:disabled{opacity:.3;cursor:default}
+.btn:not(:disabled):active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-warn{background:var(--yellow);color:#000}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid #333}
+
+/* ── Status bar ── */
+.status-bar{display:flex;align-items:center;gap:16px;margin-bottom:12px;min-height:28px}
+#status{font-weight:600;font-size:14px}
+#timer{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);display:none;letter-spacing:1px}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:var(--red);display:none;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Audio meter ── */
+#meter-wrap{display:none;flex-direction:column;gap:2px}
+#meter-wrap span{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
+#meter{width:120px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+#meter-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));border-radius:4px;transition:width .07s}
+
+/* ── Countdown ── */
+#countdown{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;
+  align-items:center;justify-content:center;z-index:999;font-size:120px;
+  font-weight:900;color:#fff;text-shadow:0 4px 32px rgba(108,99,255,.8)
+}
+
+/* ── View area ── */
+#view{
+  width:100%;background:#000;display:none;border-radius:12px;
+  overflow:hidden;margin-top:4px;position:relative
+}
+#mainVideo{width:100%;display:block}
+#composite{width:100%;display:none}
+.view-label{
+  position:absolute;top:10px;left:12px;background:rgba(0,0,0,.55);
+  color:#fff;font-size:11px;padding:3px 8px;border-radius:20px;
+  backdrop-filter:blur(4px);pointer-events:none
+}
+
+/* ── Drawing toolbar (laser/annotate) ── */
+#draw-bar{
+  position:absolute;top:10px;right:12px;display:none;
+  flex-direction:column;gap:6px;z-index:10
+}
+.draw-btn{
+  width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;
+  font-size:16px;background:rgba(20,20,30,.75);color:#fff;
+  backdrop-filter:blur(4px);transition:background .15s
+}
+.draw-btn.active{background:var(--accent)}
+.color-dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;cursor:pointer;margin:0 auto}
+
+/* ── Preview modal ── */
+#preview-modal{
+  position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;
+  align-items:center;justify-content:center;z-index:1000;padding:20px
+}
+#preview-modal .modal-box{
+  background:var(--surface);border-radius:16px;padding:20px;
+  max-width:860px;width:100%
+}
+#preview-modal video{width:100%;border-radius:10px;max-height:60vh}
+.modal-actions{display:flex;gap:10px;margin-top:14px;justify-content:flex-end}
+
+/* ── Hotkey hint ── */
+.keys{font-size:11px;color:var(--sub);margin-top:8px}
+.keys kbd{
+  background:var(--surface2);border:1px solid #444;border-radius:4px;
+  padding:1px 5px;font-family:monospace;font-size:11px
+}
+</style>
+</head>
+<body>
+
+<h1>⬤ Screen Recorder Pro</h1>
+<p class="subtitle">Record screen · camera · voice — one file, no upload, no limits</p>
+
+<!-- Mode selector -->
+<div class="mode-grid">
+  <label class="mode-card active">
+    <input type="radio" name="mode" value="screen" checked/>
+    <div class="icon">🖥️</div>
+    <div class="label">Screen only</div>
+    <div class="desc">Tab / window + mic</div>
+  </label>
+  <label class="mode-card">
+    <input type="radio" name="mode" value="camera"/>
+    <div class="icon">📷</div>
+    <div class="label">Camera only</div>
+    <div class="desc">Face cam + voice</div>
+  </label>
+  <label class="mode-card">
+    <input type="radio" name="mode" value="both"/>
+    <div class="icon">🎬</div>
+    <div class="label">Screen + Camera</div>
+    <div class="desc">Face overlay on screen</div>
+  </label>
+</div>
+
+<!-- Options row -->
+<div class="options">
+  <div class="opt-group" id="opt-quality">
+    <label>Quality</label>
+    <select id="qualitySelect">
+      <option value="8000000">Ultra (8 Mbps)</option>
+      <option value="4000000" selected>High (4 Mbps)</option>
+      <option value="2000000">Medium (2 Mbps)</option>
+      <option value="1000000">Low (1 Mbps)</option>
+    </select>
+  </div>
+  <div class="opt-group" id="opt-campos" style="display:none">
+    <label>Cam position</label>
+    <select id="camPosSelect">
+      <option value="br" selected>Bottom right</option>
+      <option value="bl">Bottom left</option>
+      <option value="tr">Top right</option>
+      <option value="tl">Top left</option>
+    </select>
+  </div>
+  <div class="opt-group" id="opt-camshape" style="display:none">
+    <label>Cam shape</label>
+    <select id="camShapeSelect">
+      <option value="round" selected>Circle</option>
+      <option value="rect">Rectangle</option>
+    </select>
+  </div>
+  <div class="opt-group" id="opt-camsize" style="display:none">
+    <label>Cam size</label>
+    <input type="range" id="camSizeRange" min="10" max="35" value="22" style="width:90px"/>
+  </div>
+</div>
+
+<!-- Step-by-step instructions -->
+<div id="instr"></div>
+
+<!-- Controls -->
+<div class="ctrl-row">
+  <button class="btn btn-primary" id="startBtn">▶ Start</button>
+  <button class="btn btn-warn"    id="pauseBtn"  disabled>⏸ Pause</button>
+  <button class="btn btn-ghost"   id="resumeBtn" disabled>⏵ Resume</button>
+  <button class="btn btn-danger"  id="stopBtn"   disabled>⏹ Stop</button>
+  <button class="btn btn-ghost"   id="screenshotBtn" disabled title="Take screenshot">📸</button>
+</div>
+
+<!-- Status + timer + meter -->
+<div class="status-bar">
+  <div class="rec-dot" id="recDot"></div>
+  <div id="status">Ready</div>
+  <div id="timer">00:00</div>
+  <div id="meter-wrap">
+    <span>Audio</span>
+    <div id="meter"><div id="meter-bar"></div></div>
+  </div>
+</div>
+
+<!-- Keyboard hints -->
+<div class="keys">
+  <kbd>Space</kbd> Pause/Resume &nbsp;
+  <kbd>Esc</kbd> Stop &nbsp;
+  <kbd>S</kbd> Screenshot (during recording)
+</div>
+
+<!-- Countdown overlay -->
+<div id="countdown"></div>
+
+<!-- Live view -->
+<div id="view">
+  <div class="view-label" id="viewLabel">Preview</div>
+  <video id="mainVideo" autoplay muted playsinline></video>
+  <canvas id="composite"></canvas>
+  <!-- Drawing/annotation toolbar -->
+  <div id="draw-bar">
+    <button class="draw-btn" id="laserBtn" title="Laser pointer">🔴</button>
+    <button class="draw-btn" id="penBtn"   title="Draw">✏️</button>
+    <button class="draw-btn" id="clearBtn" title="Clear">🗑️</button>
+    <div class="color-dot" id="colorPick" style="background:#ff6584" title="Color"></div>
+    <input type="color" id="colorInput" value="#ff6584" style="display:none"/>
+  </div>
+</div>
+
+<!-- Preview-before-download modal -->
+<div id="preview-modal">
+  <div class="modal-box">
+    <h3 style="margin-bottom:12px">Preview recording</h3>
+    <video id="previewVid" controls></video>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="discardBtn">🗑 Discard</button>
+      <button class="btn btn-primary" id="downloadBtn">⬇ Download .webm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DOM refs ──────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const startBtn     = $('startBtn'),    pauseBtn    = $('pauseBtn');
+const resumeBtn    = $('resumeBtn'),   stopBtn     = $('stopBtn');
+const screenshotBtn= $('screenshotBtn');
+const statusEl     = $('status'),      timerEl     = $('timer');
+const recDot       = $('recDot'),      meterWrap   = $('meter-wrap');
+const meterBar     = $('meter-bar'),   countdownEl = $('countdown');
+const instrEl      = $('instr'),       viewEl      = $('view');
+const mainVideo    = $('mainVideo'),   composite   = $('composite');
+const ctx          = composite.getContext('2d');
+const viewLabel    = $('viewLabel');
+const drawBar      = $('draw-bar');
+const previewModal = $('preview-modal');
+const previewVid   = $('previewVid');
+const downloadBtn  = $('downloadBtn'), discardBtn  = $('discardBtn');
+const camPosOpt    = $('opt-campos'),  camShapeOpt = $('opt-camshape');
+const camSizeOpt   = $('opt-camsize');
+const colorDot     = $('colorPick'),   colorInput  = $('colorInput');
+
+// ── State ─────────────────────────────────────────────────────────────
+let recorder    = null, chunks    = [];
+let screenStream= null, camStream = null, audioCtx = null;
+let drawVid     = null, vfcId    = null;
+let timerIntvl  = null, elapsedSec= 0;
+let meterRaf    = null, analyser  = null;
+let savedBlob   = null;
+
+// Drawing state (laser/pen on composite canvas)
+let drawMode    = null; // 'laser'|'pen'|null
+let drawColor   = '#ff6584';
+let isDrawing   = false;
+let drawPx      = 0, drawPy = 0;
+
+// ── Mode UI ───────────────────────────────────────────────────────────
+const INSTRS = {
+  screen:`<b>Screen only steps:</b><br>
+    1. Click <b>▶ Start</b> → Chrome share dialog opens<br>
+    2. Go to <b>"Chrome Tab"</b> tab → pick the tab you want to record<br>
+    3. Click <b>Share</b> → allow mic → 3s countdown → recording starts<br>
+    4. Switch to that tab and work normally — mic records your voice<br>
+    5. Return here → <b>⏹ Stop</b> → preview → download`,
+  both:`<b>Screen + Camera steps:</b><br>
+    1. Click <b>▶ Start</b> → share dialog opens<br>
+    2. Choose <b>"Chrome Tab"</b> → pick <b>a different tab</b> (ChatGPT, Docs, YouTube…)<br>
+    <span class="warn">⚠ Do NOT pick this recorder tab — it creates a mirror loop</span><br>
+    3. Click <b>Share</b> → allow camera & mic → 3s countdown<br>
+    4. Switch to your selected tab and work — recorder runs silently in background<br>
+    5. Return here → <b>⏹ Stop</b> → preview → download one combined video`
+};
+
+function getMode(){ return document.querySelector('input[name="mode"]:checked').value }
+
+document.querySelectorAll('.mode-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    const m = card.querySelector('input').value;
+    instrEl.innerHTML = INSTRS[m] || '';
+    instrEl.style.display = INSTRS[m] ? 'block' : 'none';
+    camPosOpt.style.display   = m === 'both' ? 'block' : 'none';
+    camShapeOpt.style.display = m === 'both' ? 'block' : 'none';
+    camSizeOpt.style.display  = m === 'both' ? 'block' : 'none';
+  });
+});
+// Init instructions for default mode (screen)
+instrEl.innerHTML = INSTRS.screen;
+instrEl.style.display = 'block';
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function setStatus(s){ statusEl.textContent = s }
+
+function fmtTime(s){
+  const m = String(Math.floor(s/60)).padStart(2,'0');
+  const sec = String(s%60).padStart(2,'0');
+  return `${m}:${sec}`;
+}
+
+function startTimer(){
+  elapsedSec = 0;
+  timerEl.textContent = '00:00';
+  timerEl.style.display = 'block';
+  recDot.style.display = 'block';
+  timerIntvl = setInterval(()=>{ elapsedSec++; timerEl.textContent = fmtTime(elapsedSec); }, 1000);
+}
+function stopTimer(){
+  clearInterval(timerIntvl); timerIntvl = null;
+  timerEl.style.display = 'none';
+  recDot.style.display = 'none';
+}
+
+function runCountdown(n){
+  return new Promise(resolve => {
+    countdownEl.style.display = 'flex';
+    countdownEl.textContent = n;
+    const t = setInterval(()=>{
+      n--;
+      if(n <= 0){ clearInterval(t); countdownEl.style.display='none'; resolve(); }
+      else countdownEl.textContent = n;
+    }, 1000);
+  });
+}
+
+function waitForVideo(vid){
+  return new Promise(resolve=>{
+    const check = () => (vid.videoWidth > 0 && vid.videoHeight > 0) ? resolve() : setTimeout(check,50);
+    check();
+  });
+}
+
+async function makeOffscreenVideo(stream){
+  const v = document.createElement('video');
+  v.srcObject = stream; v.muted = true; v.playsInline = true;
+  await v.play();
+  await waitForVideo(v);
+  return v;
+}
+
+function mixAudio(...streams){
+  audioCtx = new AudioContext();
+  const dest = audioCtx.createMediaStreamDestination();
+
+  // Analyser for audio meter — NOT connected to destination (no speaker playback)
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+
+  streams.forEach(s => {
+    if(s?.getAudioTracks().length){
+      const src = audioCtx.createMediaStreamSource(s);
+      src.connect(dest);
+      src.connect(analyser); // meter only, no output to speakers
+    }
+  });
+  return dest.stream.getAudioTracks()[0] || null;
+}
+
+function startMeter(){
+  if(!analyser) return;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  meterWrap.style.display = 'flex';
+  const tick = () => {
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a,b)=>a+b,0)/data.length;
+    meterBar.style.width = Math.min(100, avg * 2) + '%';
+    meterRaf = requestAnimationFrame(tick);
+  };
+  meterRaf = requestAnimationFrame(tick);
+}
+function stopMeter(){
+  if(meterRaf) cancelAnimationFrame(meterRaf);
+  meterRaf = null;
+  meterWrap.style.display = 'none';
+  meterBar.style.width = '0%';
+}
+
+// ── Canvas draw loop (requestVideoFrameCallback — background-tab safe) ─
+function camRect(cw, ch){
+  const pct = parseInt($('camSizeRange').value) / 100;
+  const w = Math.round(composite.width * pct);
+  const h = Math.round(w * (ch / cw));
+  const pos = $('camPosSelect').value;
+  const pad = 16;
+  const x = pos.includes('r') ? composite.width  - w - pad : pad;
+  const y = pos.includes('b') ? composite.height - h - pad : pad;
+  return {x, y, w, h};
+}
+
+function drawCamOverlay(camVid){
+  const {x, y, w, h} = camRect(camVid.videoWidth, camVid.videoHeight);
+  const shape = $('camShapeSelect').value;
+
+  ctx.save();
+  ctx.beginPath();
+  if(shape === 'round'){
+    const r = Math.min(w,h)/2;
+    ctx.arc(x + w/2, y + h/2, r, 0, Math.PI*2);
+  } else {
+    ctx.roundRect(x, y, w, h, 10);
+  }
+  ctx.clip();
+  ctx.drawImage(camVid, x, y, w, h);
+  ctx.restore();
+
+  // border
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  if(shape === 'round'){
+    const r = Math.min(w,h)/2;
+    ctx.arc(x + w/2, y + h/2, r, 0, Math.PI*2);
+  } else {
+    ctx.roundRect(x, y, w, h, 10);
+  }
+  ctx.stroke();
+}
+
+function startDraw(screenVid, camVid){
+  drawVid = screenVid;
+  const frame = () => {
+    ctx.drawImage(screenVid, 0, 0, composite.width, composite.height);
+    drawCamOverlay(camVid);
+    vfcId = screenVid.requestVideoFrameCallback(frame);
+  };
+  ctx.drawImage(screenVid, 0, 0, composite.width, composite.height);
+  vfcId = screenVid.requestVideoFrameCallback(frame);
+}
+
+// ── Screenshot ────────────────────────────────────────────────────────
+function takeScreenshot(){
+  const src = composite.style.display !== 'none' ? composite : null;
+  const img = document.createElement('canvas');
+  if(src){
+    img.width = src.width; img.height = src.height;
+    img.getContext('2d').drawImage(src, 0, 0);
+  } else {
+    img.width = mainVideo.videoWidth; img.height = mainVideo.videoHeight;
+    img.getContext('2d').drawImage(mainVideo, 0, 0);
+  }
+  img.toBlob(blob => {
+    const a = Object.assign(document.createElement('a'),{
+      href: URL.createObjectURL(blob),
+      download: 'screenshot-'+Date.now()+'.png'
+    });
+    a.click(); URL.revokeObjectURL(a.href);
+  },'image/png');
+}
+
+// ── Drawing / annotation on composite ────────────────────────────────
+function enableDrawing(){
+  composite.style.cursor = 'crosshair';
+  drawBar.style.display  = 'flex';
+}
+function disableDrawing(){
+  composite.style.cursor = '';
+  drawBar.style.display  = 'none';
+  drawMode = null;
+}
+
+composite.addEventListener('mousedown', e=>{
+  if(!drawMode) return;
+  isDrawing = true;
+  const r = composite.getBoundingClientRect();
+  const sx = composite.width  / r.width;
+  const sy = composite.height / r.height;
+  drawPx = (e.clientX - r.left) * sx;
+  drawPy = (e.clientY - r.top)  * sy;
+  if(drawMode === 'laser'){
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = drawColor;
+    ctx.beginPath();
+    ctx.arc(drawPx, drawPy, 10, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+});
+composite.addEventListener('mousemove', e=>{
+  if(!isDrawing || drawMode !== 'pen') return;
+  const r  = composite.getBoundingClientRect();
+  const sx = composite.width  / r.width;
+  const sy = composite.height / r.height;
+  const nx = (e.clientX - r.left) * sx;
+  const ny = (e.clientY - r.top)  * sy;
+  ctx.save();
+  ctx.strokeStyle = drawColor;
+  ctx.lineWidth   = 4;
+  ctx.lineCap     = 'round';
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.moveTo(drawPx, drawPy);
+  ctx.lineTo(nx, ny);
+  ctx.stroke();
+  ctx.restore();
+  drawPx = nx; drawPy = ny;
+});
+composite.addEventListener('mouseup',   ()=>{ isDrawing = false; });
+composite.addEventListener('mouseleave',()=>{ isDrawing = false; });
+
+$('laserBtn').addEventListener('click', ()=>{
+  drawMode = drawMode==='laser' ? null : 'laser';
+  $('laserBtn').classList.toggle('active', drawMode==='laser');
+  $('penBtn').classList.remove('active');
+});
+$('penBtn').addEventListener('click', ()=>{
+  drawMode = drawMode==='pen' ? null : 'pen';
+  $('penBtn').classList.toggle('active', drawMode==='pen');
+  $('laserBtn').classList.remove('active');
+});
+$('clearBtn').addEventListener('click', ()=>{
+  // Clear will be overwritten on next video frame — just triggers a redraw
+});
+colorDot.addEventListener('click', ()=> colorInput.click());
+colorInput.addEventListener('input', e=>{
+  drawColor = e.target.value;
+  colorDot.style.background = drawColor;
+});
+
+// ── Main recording flow ───────────────────────────────────────────────
+async function start(){
+  chunks = []; savedBlob = null;
+  screenStream = camStream = audioCtx = null;
+  drawVid = null; vfcId = null;
+
+  try{
+    let videoTrack, audioTrack;
+    const m = getMode();
+    const bitrate = parseInt($('qualitySelect').value);
+
+    if(m === 'screen'){
+      setStatus('Waiting for screen share…');
+      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+      let mic = null;
+      try{ mic = await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }catch(_){}
+      videoTrack = screenStream.getVideoTracks()[0];
+      audioTrack = mixAudio(screenStream, mic);
+      mainVideo.srcObject = screenStream;
+      mainVideo.style.display = 'block';
+      composite.style.display = 'none';
+      viewLabel.textContent = 'Screen';
+      viewEl.style.display = 'block';
+      disableDrawing();
+
+    } else if(m === 'camera'){
+      setStatus('Waiting for camera…');
+      camStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+      videoTrack = camStream.getVideoTracks()[0];
+      audioTrack = mixAudio(camStream);
+      mainVideo.srcObject = camStream;
+      mainVideo.style.display = 'block';
+      composite.style.display = 'none';
+      viewLabel.textContent = 'Camera';
+      viewEl.style.display = 'block';
+      disableDrawing();
+
+    } else {
+      setStatus('Step 1: Pick a Chrome Tab to record…');
+      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+      setStatus('Step 2: Allow camera & mic…');
+      camStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+      setStatus('Building composite…');
+
+      const [sv, cv] = await Promise.all([
+        makeOffscreenVideo(screenStream),
+        makeOffscreenVideo(camStream),
+      ]);
+      composite.width  = sv.videoWidth;
+      composite.height = sv.videoHeight;
+      startDraw(sv, cv);
+      await new Promise(r=>setTimeout(r,300));
+
+      composite.style.display = 'block';
+      mainVideo.style.display = 'none';
+      viewLabel.textContent = 'Screen + Camera';
+      viewEl.style.display = 'block';
+      enableDrawing();
+
+      const canvasStream = composite.captureStream(30);
+      videoTrack = canvasStream.getVideoTracks()[0];
+      audioTrack = mixAudio(screenStream, camStream);
+    }
+
+    const recStream = new MediaStream([videoTrack, audioTrack].filter(Boolean));
+
+    await runCountdown(3);
+
+    recorder = new MediaRecorder(recStream, {
+      mimeType: 'video/webm;codecs=vp8,opus',
+      videoBitsPerSecond: bitrate,
+    });
+    recorder.ondataavailable = e => { if(e.data?.size > 0) chunks.push(e.data); };
+    recorder.onstop = onStop;
+    recorder.start(100);
+
+    startTimer();
+    startMeter();
+    setStatus('Recording… (switch to your tab and work normally)');
+
+    startBtn.disabled   = true;
+    pauseBtn.disabled   = false;
+    stopBtn.disabled    = false;
+    screenshotBtn.disabled = false;
+    document.querySelectorAll('input[name="mode"]').forEach(r => r.disabled = true);
+
+  }catch(err){
+    setStatus('Error: ' + err.message);
+    cleanup();
+  }
+}
+
+function pause(){
+  if(recorder?.state === 'recording'){
+    recorder.pause();
+    setStatus('Paused');
+    clearInterval(timerIntvl);
+    pauseBtn.disabled  = true;
+    resumeBtn.disabled = false;
+    recDot.style.animationPlayState = 'paused';
+  }
+}
+
+function resume(){
+  if(recorder?.state === 'paused'){
+    recorder.resume();
+    setStatus('Recording…');
+    timerIntvl = setInterval(()=>{ elapsedSec++; timerEl.textContent=fmtTime(elapsedSec); }, 1000);
+    resumeBtn.disabled = true;
+    pauseBtn.disabled  = false;
+    recDot.style.animationPlayState = 'running';
+  }
+}
+
+function stop(){
+  recorder?.stop();
+  // cleanup called after onStop shows preview
+}
+
+function onStop(){
+  stopTimer();
+  stopMeter();
+  savedBlob = new Blob(chunks, {type:'video/webm'});
+  const url = URL.createObjectURL(savedBlob);
+  previewVid.src = url;
+  previewModal.style.display = 'flex';
+  cleanup(false); // clean streams but keep UI going for modal
+}
+
+function cleanup(resetUI = true){
+  if(vfcId !== null && drawVid){ drawVid.cancelVideoFrameCallback(vfcId); }
+  vfcId = null; drawVid = null;
+  stopTimer(); stopMeter();
+  if(audioCtx){ audioCtx.close(); audioCtx = null; }
+  [screenStream, camStream].forEach(s => s?.getTracks().forEach(t=>t.stop()));
+  screenStream = camStream = null;
+  mainVideo.srcObject = null;
+  if(resetUI){
+    viewEl.style.display = 'none';
+    disableDrawing();
+  }
+  startBtn.disabled   = false;
+  pauseBtn.disabled   = true;
+  resumeBtn.disabled  = true;
+  stopBtn.disabled    = true;
+  screenshotBtn.disabled = true;
+  document.querySelectorAll('input[name="mode"]').forEach(r => r.disabled = false);
+  setStatus('Ready');
+}
+
+// ── Preview modal ─────────────────────────────────────────────────────
+downloadBtn.addEventListener('click', ()=>{
+  if(!savedBlob) return;
+  const a = Object.assign(document.createElement('a'),{
+    href: URL.createObjectURL(savedBlob),
+    download: 'recording-' + Date.now() + '.webm'
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  closePreview();
+});
+discardBtn.addEventListener('click', ()=>{
+  savedBlob = null;
+  closePreview();
+});
+function closePreview(){
+  previewModal.style.display = 'none';
+  URL.revokeObjectURL(previewVid.src);
+  previewVid.src = '';
+  viewEl.style.display = 'none';
+  disableDrawing();
+}
+
+// ── Event wiring ──────────────────────────────────────────────────────
+startBtn.addEventListener('click',       start);
+pauseBtn.addEventListener('click',       pause);
+resumeBtn.addEventListener('click',      resume);
+stopBtn.addEventListener('click',        stop);
+screenshotBtn.addEventListener('click',  takeScreenshot);
+
+document.addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if(e.code === 'Space' && !startBtn.disabled){
+    e.preventDefault();
+    recorder?.state === 'paused' ? resume() : pause();
+  }
+  if(e.code === 'Escape' && !stopBtn.disabled) stop();
+  if(e.code === 'KeyS'   && !screenshotBtn.disabled) takeScreenshot();
+});
+</script>
+</body>
+</html>
