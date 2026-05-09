@@ -1,7 +1,6 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, desktopCapturer } = require('electron');
 const path = require('path');
 
-// Allow getDisplayMedia and getUserMedia in Electron
 app.commandLine.appendSwitch('enable-features', 'WebRTC-H264WithOpenH264FFmpeg');
 app.commandLine.appendSwitch('auto-accept-camera-and-microphone-capture');
 
@@ -31,9 +30,11 @@ function createWindow() {
     callback(allowed.includes(permission));
   });
 
-  win.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
-    // Let Electron handle screen picker natively
-    callback({ video: 'screen' });
+  win.webContents.session.setDisplayMediaRequestHandler(async (request, callback) => {
+    // Must pass a real DesktopCapturerSource — 'screen' string is invalid in Electron 20+
+    const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] });
+    const primary = sources.find(s => /screen|display/i.test(s.name)) || sources[0];
+    if (primary) callback({ video: primary });
   });
 
   win.loadFile('index.html');
