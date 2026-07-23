@@ -289,7 +289,7 @@ select:focus{border-color:var(--accent)}
       <button class="btn btn-ghost"   id="dlWebmBtn">⬇ Save as WebM</button>
       <button class="btn btn-primary" id="dlMp4Btn">⬇ Save as MP4</button>
     </div>
-    <div id="mp4Unavail">⚠ MP4 recording not supported in this browser — WebM plays in Chrome, Edge &amp; VLC</div>
+    <div id="mp4Unavail">⚠ MP4 export requires the desktop app</div>
   </div>
 </div>
 
@@ -326,17 +326,16 @@ $('micToggle').addEventListener('click', ()=>{
   $('micLabel').textContent = micOn ? 'On' : 'Off';
 });
 
-// ── MP4 native support detection ──────────────────────────────────────
-const MP4_MIME = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-  'video/mp4;codecs=h264,aac',
-  'video/mp4',
-].find(t => MediaRecorder.isTypeSupported(t)) || null;
-
 // ── State ─────────────────────────────────────────────────────────────
-let recWebm  = null, chunksWebm = [];   // always recorded
-let recMp4   = null, chunksMp4  = [];   // recorded only if MP4 supported
-let blobWebm = null, blobMp4    = null;
+// NOTE: we deliberately do NOT use MediaRecorder's native "video/mp4" mode.
+// That mode only produces a fragmented MP4 with no finalized moov/duration
+// table — most players, editors, and upload targets (Google Photos, Drive,
+// video editors) only read the first fragment (~a few seconds) and treat
+// the rest of the file as corrupt. Instead we always record reliably to
+// WebM, then transcode to a real, fully-indexed, faststart MP4 via ffmpeg
+// in the Electron main process (see main.js "export-mp4" handler).
+let recWebm  = null, chunksWebm = [];
+let blobWebm = null;
 let stopCount= 0;
 let screenStream= null, camStream = null, audioCtx = null;
 let drawVid     = null, vfcId    = null;
@@ -614,9 +613,9 @@ colorInput.addEventListener('input', e=>{
 
 // ── Main recording flow ───────────────────────────────────────────────
 async function start(){
-  chunksWebm = []; chunksMp4 = [];
-  blobWebm = null; blobMp4 = null; stopCount = 0;
-  recWebm = null; recMp4 = null;
+  chunksWebm = [];
+  blobWebm = null; stopCount = 0;
+  recWebm = null;
   screenStream = camStream = audioCtx = null;
   drawVid = null; vfcId = null;
 
@@ -683,23 +682,13 @@ async function start(){
 
     await runCountdown(3);
 
-    const expectedStops = MP4_MIME ? 2 : 1;
-    const handleStop = () => { stopCount++; if(stopCount >= expectedStops) onStop(); };
-
     recWebm = new MediaRecorder(recStream, {
       mimeType: 'video/webm;codecs=vp8,opus',
       videoBitsPerSecond: bitrate,
     });
     recWebm.ondataavailable = e => { if(e.data?.size > 0) chunksWebm.push(e.data); };
-    recWebm.onstop = handleStop;
+    recWebm.onstop = onStop;
     recWebm.start(100);
-
-    if(MP4_MIME){
-      recMp4 = new MediaRecorder(recStream, { mimeType: MP4_MIME, videoBitsPerSecond: bitrate });
-      recMp4.ondataavailable = e => { if(e.data?.size > 0) chunksMp4.push(e.data); };
-      recMp4.onstop = handleStop;
-      recMp4.start(100);
-    }
 
     startTimer();
     startMeter();
@@ -719,7 +708,7 @@ async function start(){
 
 function pause(){
   if(recWebm?.state === 'recording'){
-    recWebm.pause(); recMp4?.pause();
+    recWebm.pause();
     setStatus('Paused');
     clearInterval(timerIntvl);
     pauseBtn.disabled  = true;
@@ -730,7 +719,7 @@ function pause(){
 
 function resume(){
   if(recWebm?.state === 'paused'){
-    recWebm.resume(); recMp4?.resume();
+    recWebm.resume();
     setStatus('Recording…');
     timerIntvl = setInterval(()=>{ elapsedSec++; timerEl.textContent=fmtTime(elapsedSec); }, 1000);
     resumeBtn.disabled = true;
@@ -741,7 +730,6 @@ function resume(){
 
 function stop(){
   recWebm?.stop();
-  recMp4?.stop();
 }
 
 function fmtSize(bytes){ return (bytes/1024/1024).toFixed(1)+' MB'; }
@@ -750,19 +738,17 @@ function onStop(){
   stopTimer(); stopMeter();
 
   blobWebm = new Blob(chunksWebm, {type:'video/webm'});
-  blobMp4  = chunksMp4.length ? new Blob(chunksMp4, {type:'video/mp4'}) : null;
 
-  // Show format badges
   $('fmtWebm').style.display = 'inline';
-  $('fmtMp4').style.display  = blobMp4 ? 'inline' : 'none';
-  $('recSize').textContent   = blobMp4
-    ? `WebM ${fmtSize(blobWebm.size)} · MP4 ${fmtSize(blobMp4.size)}`
-    : fmtSize(blobWebm.size);
+  $('fmtMp4').style.display  = 'none';
+  $('recSize').textContent   = fmtSize(blobWebm.size);
 
-  // MP4 button: enabled only if native MP4 was recorded
-  dlMp4Btn.disabled = !blobMp4;
-  dlMp4Btn.title    = blobMp4 ? '' : 'MP4 not supported in this browser';
-  $('mp4Unavail').style.display = blobMp4 ? 'none' : 'block';
+  // MP4 export is always available (via ffmpeg in the desktop app); only
+  // disabled if this page somehow isn't running inside the Electron shell.
+  const mp4Available = !!window.electronAPI;
+  dlMp4Btn.disabled = !mp4Available;
+  dlMp4Btn.title    = mp4Available ? '' : 'MP4 export requires the desktop app';
+  $('mp4Unavail').style.display = mp4Available ? 'none' : 'block';
 
   previewVid.src = URL.createObjectURL(blobWebm);
   previewModal.style.display = 'flex';
@@ -825,12 +811,30 @@ dlWebmBtn.addEventListener('click', async ()=>{
   closePreview();
 });
 dlMp4Btn.addEventListener('click', async ()=>{
-  if(!blobMp4) return;
-  await saveAs(blobMp4, 'recording-'+Date.now()+'.mp4');
-  closePreview();
+  if(!blobWebm || !window.electronAPI) return;
+  const prevLabel = dlMp4Btn.textContent;
+  dlMp4Btn.disabled = true;
+  dlMp4Btn.textContent = 'Converting…';
+  setStatus('Converting to MP4… this can take a moment for longer recordings');
+  try{
+    const buffer = await blobWebm.arrayBuffer();
+    const name = 'recording-'+Date.now()+'.mp4';
+    const result = await window.electronAPI.exportMp4(buffer, name);
+    if(result.canceled){
+      setStatus('Ready');
+    } else if(result.success){
+      setStatus('Saved: ' + result.path);
+      closePreview();
+    } else {
+      setStatus('MP4 export failed: ' + result.error);
+    }
+  } finally {
+    dlMp4Btn.disabled = false;
+    dlMp4Btn.textContent = prevLabel;
+  }
 });
 discardBtn.addEventListener('click', ()=>{
-  blobWebm = null; blobMp4 = null;
+  blobWebm = null;
   closePreview();
 });
 function closePreview(){

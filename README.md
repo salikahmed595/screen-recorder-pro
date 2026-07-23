@@ -59,8 +59,10 @@ The extension opens a floating window that stays open when you switch tabs — r
 | Screenshot | Capture a PNG still at any moment |
 | Preview before download | Watch recording, then save or discard |
 | Keyboard shortcuts | `Space` pause · `Esc` stop · `S` screenshot |
-| Local download | `.webm` file saved directly to your computer |
+| Local download | `.webm` file saved directly to your computer (web app), or a real, fully-standard `.mp4` (desktop app) |
 | 100% private | No upload, no cloud, no account required |
+
+> **MP4 export** is only available in the **Windows desktop app**. It records reliably to WebM, then transcodes through a bundled `ffmpeg` into a proper, non-fragmented, faststart MP4 (H.264 High/5.1 + AAC-LC, constant frame rate, even dimensions) — so the file opens correctly in Google Photos, WhatsApp, Google Drive, and every video editor, with the right duration and full seek support. The web demo doesn't have a backend to transcode with, so it only offers `.webm` there.
 
 ---
 
@@ -108,6 +110,7 @@ The extension opens a floating window that stays open when you switch tabs — r
 - `HTMLCanvasElement` + `requestVideoFrameCallback` — compositing (background-tab safe)
 - `AudioContext` — echo-free multi-source audio mixing
 - Electron — Windows desktop app
+- `ffmpeg-static` — bundled ffmpeg binary, used by the desktop app to transcode recordings into standard, universally-compatible MP4
 - Chrome Extension Manifest V3 — browser extension
 
 ---
@@ -128,7 +131,8 @@ The extension opens a floating window that stays open when you switch tabs — r
 ```
 screen-recorder-pro/
 ├── index.html              # Web app (single file)
-├── main.js                 # Electron entry point
+├── main.js                 # Electron entry point + ffmpeg MP4 export (IPC)
+├── preload.js               # Secure bridge exposing MP4 export to the renderer
 ├── package.json            # Electron build config
 ├── assets/
 │   └── icon.ico            # App icon
