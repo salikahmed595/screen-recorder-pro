@@ -1,22 +1,24 @@
 {
   "name": "screen-recorder-pro",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Free screen recorder with face cam overlay, voice, and instant download",
   "main": "main.js",
   "author": "salikahmed595",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win"
+    "build": "electron-builder --win",
+    "test": "node --test"
   },
   "build": {
     "appId": "com.salikahmed595.screenrecorderpro",
     "productName": "Screen Recorder Pro",
-    "copyright": "Copyright © 2026 salikahmed595",
+    "copyright": "Copyright \u00a9 2026 salikahmed595",
     "files": [
       "index.html",
       "main.js",
       "preload.js",
+      "lib/**",
       "assets/**"
     ],
     "asarUnpack": [

@@ -41,6 +41,37 @@ The extension opens a floating window that stays open when you switch tabs — r
 
 ---
 
+## What's new in 1.1
+
+- **Window or screen picker** with live thumbnails, plus **system audio** (Windows desktop app)
+- **Export to MP4 / GIF / WebM** with trim start/end and a progress bar (bundled ffmpeg)
+- **Crash recovery** — recordings stream to disk; an interrupted one can be recovered on next launch
+- **Global hotkeys** (desktop app): `Ctrl+Shift+F9` start/stop · `F10` pause · `F11` screenshot
+- **Tray icon**, close-while-recording confirmation, copy screenshot to clipboard
+- Fixed: inverted `Space` shortcut, pen strokes vanishing, Clear doing nothing, timer freezing in the background, no handling of a stopped share
+- New dark/lime theme matching the PAICONS site
+- Unit + real-ffmpeg integration tests (`npm test`) and CI
+
+## Examples
+
+Three single-file recorders in [`examples/`](examples) — [One Click](examples/01-one-click.html), [Guided Steps](examples/02-guided-steps.html) and [Floating Studio](examples/03-floating-studio.html). See [examples/README.md](examples/README.md).
+
+## Development
+
+```bash
+npm install
+npm start        # run the desktop app
+npm test         # unit + ffmpeg integration tests (Node 20+)
+npm run build    # Windows installer + portable exe
+```
+
+## Inspiration & licensing
+
+Feature ideas were inspired by the workflows of OBS Studio, Screenity, ShareX, ScreenToGif and vokoscreenNG.
+Four of these are GPL-licensed, so **no code was copied** — everything here is original and remains MIT.
+
+---
+
 ## Features
 
 | Feature | Detail |
@@ -58,7 +89,7 @@ The extension opens a floating window that stays open when you switch tabs — r
 | Pen annotation | Draw on screen during recording |
 | Screenshot | Capture a PNG still at any moment |
 | Preview before download | Watch recording, then save or discard |
-| Keyboard shortcuts | `Space` pause · `Esc` stop · `S` screenshot |
+| Keyboard shortcuts | `Space` pause · `Esc` stop · `S` screenshot (web) · global hotkeys (desktop) |
 | Local download | `.webm` file saved directly to your computer (web app), or a real, fully-standard `.mp4` (desktop app) |
 | 100% private | No upload, no cloud, no account required |
 

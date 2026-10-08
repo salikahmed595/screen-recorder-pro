@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Run tests
+        run: npm test
+
       - name: Build Windows installer + portable exe
         run: npx electron-builder --win --publish never
 
@@ -53,7 +56,10 @@ jobs:
             - 📸 Screenshot capture anytime
             - ⏱️ Live timer & audio meter
             - 🎚️ Quality presets (1–8 Mbps)
-            - 💾 Saves `.webm` locally — no cloud, no upload, 100% private
+            - 💾 Saves locally — no cloud, no upload, 100% private
+            - 📤 Export to MP4 / GIF / WebM with trim (bundled ffmpeg)
+            - 🪟 Window picker, system audio, global hotkeys (Ctrl+Shift+F9 / F10 / F11)
+            - 🛟 Crash recovery for interrupted recordings
 
             ### 💻 Requirements
             Windows 10 / 11 (64-bit) — no other software needed
