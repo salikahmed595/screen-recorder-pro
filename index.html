@@ -244,12 +244,58 @@ details.adv .options{margin:4px 0 14px}
   background:var(--surface2);border:1px solid #3a4530;border-radius:4px;
   padding:1px 5px;font-family:monospace;font-size:11px
 }
+
+/* ── Guided Steps shell ── */
+body{padding:0}
+.wrap{max-width:900px;margin:0 auto;padding:26px 20px 70px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px}
+.logo{display:inline-flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.3px;font-size:16px}
+.logo i{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+.pill{font-size:12px;color:var(--sub);border:1px solid var(--line);padding:5px 12px;border-radius:99px}
+.steps{display:flex;gap:8px;margin-bottom:30px;list-style:none}
+.steps li{flex:1;font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:8px}
+.steps li::before{content:'';height:4px;border-radius:4px;background:var(--surface2);transition:.3s}
+.steps li.done::before{background:rgba(185,244,100,.45)}
+.steps li.now::before{background:var(--accent)}
+.steps li.now{color:var(--text);font-weight:700}
+.step,#preview-modal{animation:stepin .3s ease-out}
+@keyframes stepin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.step{display:none}
+.step.on{display:block}
+h1{font-size:clamp(28px,5vw,44px);font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+h1 em{font-style:normal;color:var(--accent)}
+.lead{color:var(--sub);margin-bottom:24px;line-height:1.6}
+.nav{display:flex;justify-content:space-between;margin-top:26px;gap:12px;align-items:center}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:16px}
+.panel .options{margin-bottom:0}
+.panel .options + .options{margin-top:16px}
+.btn-lg{padding:14px 28px;font-size:16px;border-radius:13px}
+.mode-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:0}
+.mode-card{position:relative;display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:18px;padding:22px;background:var(--surface);transition:.18s}
+.mode-card:hover{transform:translateY(-3px);border-color:#47563a;background:var(--surface)}
+.mode-card.active{border-color:var(--accent);background:linear-gradient(180deg,rgba(185,244,100,.09),transparent),var(--surface)}
+.mode-card .icon{font-size:34px;margin:0}
+.mode-card .label{font-size:18px;font-weight:700}
+.mode-card .desc{font-size:14px;line-height:1.5;margin:0}
+.btn{border-radius:12px}
+.btn-primary:hover:not(:disabled){filter:brightness(1.07)}
+.rec-stage{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px;margin-bottom:16px}
+.rec-stage .ctrl-row{justify-content:center;margin:6px 0 16px}
+.rec-stage .status-bar{justify-content:center;margin-bottom:12px}
+.rec-stage #timer{font-size:46px}
+.rec-stage .keys{text-align:center}
+#preview-modal{position:static;inset:auto;background:none;padding:0;z-index:auto;overflow:visible;display:none;flex-direction:column;align-items:stretch;justify-content:flex-start}
+#preview-modal .modal-box{background:none;padding:0;max-width:none;max-height:none;overflow:visible}
+#preview-modal video{border:1px solid var(--line);border-radius:16px}
+#preview-modal .tool-row{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.keys kbd{border-color:var(--line)}
+@media (max-width:600px){.steps li{font-size:11px}}
 </style>
 </head>
 <body>
-
-<h1><span style="color:var(--accent)">⬤</span> Screen Recorder <span style="color:var(--accent)">Pro</span></h1>
-<p class="subtitle">Record screen · camera · voice — one file, no upload, no limits</p>
+<div class="wrap">
+<header class="top"><span class="logo"><i></i> Screen Recorder Pro</span><span class="pill">Private · nothing is uploaded</span></header>
+<ol class="steps" id="steps"><li class="now">1 · Choose</li><li>2 · Set up</li><li>3 · Record</li><li>4 · Save</li></ol>
 
 <!-- Crash recovery (desktop app) -->
 <div class="banner" id="recoveryBanner" hidden>
@@ -258,6 +304,11 @@ details.adv .options{margin:4px 0 14px}
   <button class="btn btn-ghost btn-sm" id="recoveryDeleteBtn">Delete</button>
 </div>
 
+
+<!-- STEP 1 -->
+<section class="step on" data-step="1">
+  <h1>What do you want <em>to record?</em></h1>
+  <p class="lead">Pick one — you can change your mind on the next screen.</p>
 <!-- Mode selector -->
 <div class="mode-grid">
   <label class="mode-card active">
@@ -280,6 +331,14 @@ details.adv .options{margin:4px 0 14px}
   </label>
 </div>
 
+  <div class="nav"><span></span><button class="btn btn-primary btn-lg" id="to2" type="button">Continue →</button></div>
+</section>
+
+<!-- STEP 2 -->
+<section class="step" data-step="2">
+  <h1>Get it <em>set up.</em></h1>
+  <p class="lead">Sensible defaults are already chosen — change only what you need.</p>
+  <div class="panel">
 <!-- Options row -->
 <div class="options">
   <div class="opt-group" id="opt-quality">
@@ -352,6 +411,7 @@ details.adv .options{margin:4px 0 14px}
   </div>
 </div>
 
+  </div>
 <!-- Advanced options -->
 <details class="adv" id="adv">
   <summary>More options — devices, audio, tools</summary>
@@ -389,9 +449,17 @@ details.adv .options{margin:4px 0 14px}
   </div>
 </details>
 
+  <div class="nav"><button class="btn btn-ghost btn-lg" id="back1" type="button">← Back</button><button class="btn btn-primary btn-lg" id="to3" type="button">Continue →</button></div>
+</section>
+
+<!-- STEP 3 -->
+<section class="step" data-step="3">
+  <h1>Ready <em>when you are.</em></h1>
+  <p class="lead">Press Start — you'll choose what to share, then a countdown begins.</p>
 <!-- Step-by-step instructions -->
 <div id="instr"></div>
 
+  <div class="rec-stage">
 <!-- Controls -->
 <div class="ctrl-row">
   <button class="btn btn-primary" id="startBtn">▶ Start</button>
@@ -412,19 +480,6 @@ details.adv .options{margin:4px 0 14px}
   </div>
 </div>
 
-<!-- Keyboard hints -->
-<div class="keys">
-  <kbd>Space</kbd> Pause/Resume &nbsp;
-  <kbd>Esc</kbd> Stop &nbsp;
-  <kbd>S</kbd> Screenshot &nbsp;
-  <kbd>M</kbd> Mute mic &nbsp;
-  <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo drawing
-  <div class="desktop-only" id="globalKeys"></div>
-</div>
-
-<!-- Countdown overlay -->
-<div id="countdown"></div>
-
 <!-- Live view -->
 <div id="view">
   <div class="view-label" id="viewLabel">Preview</div>
@@ -444,6 +499,23 @@ details.adv .options{margin:4px 0 14px}
   </div>
 </div>
 
+<!-- Keyboard hints -->
+<div class="keys">
+  <kbd>Space</kbd> Pause/Resume &nbsp;
+  <kbd>Esc</kbd> Stop &nbsp;
+  <kbd>S</kbd> Screenshot &nbsp;
+  <kbd>M</kbd> Mute mic &nbsp;
+  <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo drawing
+  <div class="desktop-only" id="globalKeys"></div>
+</div>
+
+  </div>
+  <div class="nav"><button class="btn btn-ghost btn-lg" id="back2" type="button">← Back</button><span></span></div>
+</section>
+
+<!-- Countdown overlay -->
+<div id="countdown"></div>
+
 <!-- Source picker (desktop app) -->
 <div class="modal" id="source-modal">
   <div class="modal-box">
@@ -460,10 +532,11 @@ details.adv .options{margin:4px 0 14px}
   </div>
 </div>
 
-<!-- Preview-before-save modal -->
-<div class="modal" id="preview-modal">
+<!-- STEP 4: save (was a modal) -->
+<div class="modal" id="preview-modal" data-step="4">
   <div class="modal-box">
-    <h3 style="margin-bottom:10px">Preview recording</h3>
+    <h1>Nice — <em>that's a wrap.</em></h1>
+    <p class="lead">Check it, trim it if you like, then save it.</p>
     <video id="previewVid" controls></video>
     <div class="no-preview" id="noPreview" hidden>This recording is too large to preview — you can still export it below.</div>
     <div class="modal-meta">
@@ -513,6 +586,8 @@ details.adv .options{margin:4px 0 14px}
   </div>
 </div>
 
+</div><!-- /wrap -->
+
 <!-- Toast -->
 <div id="toast" role="status" aria-live="polite"><span id="toastText"></span><button id="toastAction" hidden></button></div>
 
@@ -553,6 +628,19 @@ const sysAudioChk = $('sysAudioChk'), drawInScreenChk = $('drawInScreenChk'), mi
 const askWhereChk = $('askWhereChk');
 const trimStart = $('trimStart'), trimEnd = $('trimEnd'), trimInfo = $('trimInfo');
 const gifFpsSelect = $('gifFpsSelect'), gifWidthSelect = $('gifWidthSelect');
+
+// ── Guided steps ──────────────────────────────────────────────────────
+let curStep = 1;
+function goStep(n){
+  const changed = n !== curStep; curStep = n;
+  document.querySelectorAll('.step').forEach(el => el.classList.toggle('on', Number(el.dataset.step) === n));
+  document.querySelectorAll('#steps li').forEach((li, i) => { li.classList.toggle('now', i === n - 1); li.classList.toggle('done', i < n - 1); });
+  if(changed) window.scrollTo({ top: 0 });
+}
+$('to2').addEventListener('click',  () => goStep(2));
+$('back1').addEventListener('click', () => goStep(1));
+$('to3').addEventListener('click',  () => goStep(3));
+$('back2').addEventListener('click', () => { if(recState === 'idle') goStep(2); });
 
 // ── Persistent settings ───────────────────────────────────────────────
 const SETTINGS_KEY = 'srp.settings.v1';
@@ -1211,6 +1299,7 @@ function resetSessionState(){
 
 async function start(){
   if(recState !== 'idle' || previewModal.style.display === 'flex') return;
+  goStep(3);
   recState = 'starting';
   resetSessionState();
 
@@ -1489,10 +1578,12 @@ function showPreview({ sizeBytes }){
     previewVid.src = URL.createObjectURL(blobWebm);
   }
   previewModal.style.display = 'flex';
+  goStep(4);
 }
 
 function closePreview(){
   previewModal.style.display = 'none';
+  goStep(1);
   previewVid.pause();
   if(previewVid.src) URL.revokeObjectURL(previewVid.src);
   previewVid.removeAttribute('src'); previewVid.load();
