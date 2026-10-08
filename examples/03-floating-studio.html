@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Screen Recorder — Floating Studio</title>
+<link rel="icon" href="data:,"/>
+<style>
+/* PAICONS theme — near-black with a green tint, lime accent */
+:root{--bg:#0b0d0a;--surface:#12150f;--surface2:#1a2014;--line:#2a3222;--accent:#b9f464;--ink:#0b0d0a;--text:#f2f5ee;--sub:#8e9a85;--red:#ef4444}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--text);
+  background:radial-gradient(900px 480px at 80% -120px,rgba(185,244,100,.10),transparent 70%),radial-gradient(700px 400px at 0% 100%,rgba(185,244,100,.05),transparent 70%),var(--bg);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+kbd{background:var(--surface2);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font:600 12px ui-monospace,Consolas,monospace;color:var(--text)}
+em{font-style:normal;color:var(--accent)}
+.logo{display:inline-flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.3px}
+.logo i{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;font-weight:700;font-size:15px;transition:transform .12s,filter .15s,background .15s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);color:var(--ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:var(--surface2);border:1px solid var(--line)}
+.btn.ghost:hover{border-color:#47563a}
+.btn:disabled{opacity:.35;cursor:default}
+#cd{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(5,7,4,.82);backdrop-filter:blur(6px);z-index:50;gap:10px}
+#cd.show{display:flex}
+#cd span{font-size:clamp(110px,26vw,220px);font-weight:900;color:var(--accent);text-shadow:0 0 60px rgba(185,244,100,.45);animation:pop 1s ease-out infinite}
+#cd small{color:var(--sub);font-size:14px}
+@keyframes pop{0%{transform:scale(1.35);opacity:0}25%{opacity:1}100%{transform:scale(.9);opacity:.85}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,40px);opacity:0;pointer-events:none;background:var(--surface2);border:1px solid var(--line);padding:11px 16px;border-radius:12px;font-size:14px;transition:.25s;z-index:60;max-width:92vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+video{background:#000}
+
+body{overflow:hidden;height:100vh}
+#stage{position:fixed;inset:0;display:grid;place-items:center}
+#empty{text-align:center;display:grid;gap:16px;justify-items:center;padding:20px;max-width:560px}
+#empty h1{font-size:clamp(30px,5.4vw,50px);line-height:1.06;font-weight:600;letter-spacing:-.02em}
+#empty p{color:var(--sub);line-height:1.6}
+#view{max-width:100vw;max-height:100vh;width:100vw;height:100vh;object-fit:contain;display:none;touch-action:none}
+#view.live{display:block}
+#view.pen{cursor:crosshair}
+#view.drag{cursor:grab}
+#dock{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:18px;
+  background:rgba(18,21,15,.92);border:1px solid var(--line);backdrop-filter:blur(10px);box-shadow:0 14px 50px rgba(0,0,0,.55);z-index:20;user-select:none;max-width:96vw;flex-wrap:wrap;justify-content:center}
+.grip{cursor:grab;color:var(--sub);padding:0 6px;font-size:18px;letter-spacing:-3px}
+.sep{width:1px;height:26px;background:var(--line);margin:0 4px}
+.t{min-width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:17px;color:var(--sub);transition:.12s;padding:0 8px}
+.t:hover{background:var(--surface2);color:var(--text)}
+.t.on{background:rgba(185,244,100,.14);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.t:disabled{opacity:.3;cursor:default}
+.sw{width:22px;height:22px;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px var(--line)}
+.sw.on{border-color:var(--text)}
+#recb{height:38px;padding:0 16px;border-radius:11px;background:var(--accent);color:var(--ink);font-weight:800;display:flex;align-items:center;gap:8px}
+#recb i{width:12px;height:12px;border-radius:50%;background:var(--red)}
+.recording #recb{background:var(--red);color:#fff}
+.recording #recb i{border-radius:3px;background:#fff}
+#time{font:600 15px ui-monospace,Consolas,monospace;min-width:52px;text-align:center;color:var(--sub)}
+.recording #time{color:var(--text)}
+#vu{width:34px;height:6px;background:var(--surface2);border-radius:4px;overflow:hidden}
+#vu b{display:block;height:100%;width:0;background:var(--accent);transition:width .08s}
+#help{position:fixed;inset:0;background:rgba(5,7,4,.86);display:none;place-items:center;z-index:40}
+#help.show{display:grid}
+#help div{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px 30px;display:grid;grid-template-columns:auto auto;gap:10px 22px;font-size:14px;color:var(--sub)}
+#help h3{grid-column:1/-1;color:var(--text);font-size:20px}
+#result{position:fixed;right:20px;top:20px;width:min(360px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:none;gap:12px;z-index:30;box-shadow:0 14px 50px rgba(0,0,0,.5)}
+#result.show{display:grid}
+#result video{width:100%;border-radius:10px}
+#result .row{display:flex;gap:8px;justify-content:space-between;align-items:center;color:var(--sub);font-size:13px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="empty">
+    <span class="logo"><i></i> Screen Recorder · Studio</span>
+    <h1>Draw, point and <em>record.</em></h1>
+    <p>Share a window or tab and a floating toolbar appears. Annotate live, drag your face bubble anywhere, and hit record.</p>
+    <button class="btn primary" id="go">▶ Start studio</button>
+    <p style="font-size:13px">Press <kbd>?</kbd> any time for shortcuts · 100% private</p>
+  </div>
+  <canvas id="view"></canvas>
+</div>
+
+<div id="dock" hidden>
+  <span class="grip" id="grip" title="Drag the toolbar">⋮⋮</span>
+  <button id="recb"><i></i><span id="reclbl">Record</span></button>
+  <button class="t" id="pause" title="Pause (Space)" disabled>⏸</button>
+  <span id="time">00:00</span>
+  <span class="sep"></span>
+  <button class="t on" id="mic" title="Microphone (M)">🎙</button><div id="vu"><b></b></div>
+  <button class="t" id="cam" title="Face bubble (V)">📷</button>
+  <span class="sep"></span>
+  <button class="t" data-tool="pen" title="Pen (P)">✏️</button>
+  <button class="t" data-tool="hi" title="Highlighter (H)">🖍</button>
+  <button class="t" data-tool="arrow" title="Arrow (A)">↗</button>
+  <button class="t" data-tool="box" title="Box (B)">▭</button>
+  <button class="t" data-tool="laser" title="Laser (L)">🔴</button>
+  <button class="t on" data-tool="none" title="No tool (Esc)">🖱</button>
+  <span class="sw on" data-c="#b9f464" style="background:#b9f464" role="button" aria-label="Lime"></span>
+  <span class="sw" data-c="#ef4444" style="background:#ef4444" role="button" aria-label="Red"></span>
+  <span class="sw" data-c="#facc15" style="background:#facc15" role="button" aria-label="Yellow"></span>
+  <span class="sw" data-c="#ffffff" style="background:#fff" role="button" aria-label="White"></span>
+  <button class="t" id="undo" title="Undo (Ctrl+Z)">↶</button>
+  <button class="t" id="clear" title="Clear (C)">🗑</button>
+  <button class="t" id="shot" title="Screenshot (S)">📸</button>
+  <button class="t" id="qm" title="Shortcuts (?)">?</button>
+</div>
+
+<div id="result">
+  <video id="player" controls></video>
+  <div class="row"><span id="meta"></span><span><button class="btn ghost" id="close" style="padding:8px 14px">Close</button> <a class="btn primary" id="dl" href="#" download style="padding:8px 14px">⬇ Save</a></span></div>
+</div>
+
+<div id="help"><div>
+  <h3>Keyboard shortcuts</h3>
+  <span><kbd>R</kbd></span><span>Start / stop recording</span>
+  <span><kbd>Space</kbd></span><span>Pause / resume</span>
+  <span><kbd>M</kbd></span><span>Mute microphone</span>
+  <span><kbd>V</kbd></span><span>Face bubble on/off</span>
+  <span><kbd>P</kbd> <kbd>H</kbd> <kbd>A</kbd> <kbd>B</kbd> <kbd>L</kbd></span><span>Pen, highlighter, arrow, box, laser</span>
+  <span><kbd>Esc</kbd></span><span>No tool</span>
+  <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> · <kbd>C</kbd></span><span>Undo · clear drawing</span>
+  <span><kbd>S</kbd></span><span>Save a screenshot</span>
+</div></div>
+<div id="cd"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ───────────── Recording core (shared by all three examples) ─────────────
+   getDisplayMedia + getUserMedia → (optional canvas compositor) → AudioContext mixer → MediaRecorder.
+   No libraries, nothing is uploaded. */
+const core = (() => {
+  let screen = null, cam = null, mic = null, actx = null, gain = null, analyser = null;
+  let rec = null, chunks = [], stream = null, canvas = null, c2 = null, sv = null, cv = null;
+  let handles = [], lastT = 0, fps = 30, t0 = 0, pausedMs = 0, pauseAt = 0, micOn = true;
+  const api = { cam: { pos: 'br', size: 0.22, shape: 'round', mirror: true, x: null, y: null }, layers: [], onEnded: null };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const ready = v => new Promise(r => { const t = () => (v.videoWidth > 0 ? r(v) : setTimeout(t, 40)); t(); });
+  async function vid(s) { const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.srcObject = s; await v.play(); return ready(v); }
+
+  function camBox() {
+    const w = Math.round(canvas.width * api.cam.size), h = Math.round(w * cv.videoHeight / cv.videoWidth), pad = 18;
+    let x, y;
+    if (api.cam.x != null) { x = api.cam.x; y = api.cam.y; }
+    else { const p = api.cam.pos; x = p.includes('r') ? canvas.width - w - pad : pad; y = p.includes('b') ? canvas.height - h - pad : pad; }
+    return { x: Math.max(0, Math.min(canvas.width - w, x)), y: Math.max(0, Math.min(canvas.height - h, y)), w, h };
+  }
+  function camPath(b) {
+    c2.beginPath();
+    if (api.cam.shape === 'round') c2.arc(b.x + b.w / 2, b.y + b.h / 2, Math.min(b.w, b.h) / 2, 0, Math.PI * 2);
+    else c2.roundRect(b.x, b.y, b.w, b.h, 16);
+  }
+  function frame(force) {
+    if (!sv) return;
+    const now = performance.now();
+    if (!force && now - lastT < (1000 / fps) * 0.8) return;   // screen + camera both call this
+    lastT = now;
+    c2.drawImage(sv, 0, 0, canvas.width, canvas.height);
+    api.layers.forEach(fn => fn(c2, canvas.width, canvas.height));
+    if (cv) {
+      const b = camBox();
+      c2.save(); camPath(b); c2.clip();
+      if (api.cam.mirror) { c2.translate(b.x + b.w, b.y); c2.scale(-1, 1); c2.drawImage(cv, 0, 0, b.w, b.h); }
+      else c2.drawImage(cv, b.x, b.y, b.w, b.h);
+      c2.restore();
+      c2.lineWidth = 4; c2.strokeStyle = '#b9f464'; camPath(b); c2.stroke();
+    }
+  }
+  // requestVideoFrameCallback keeps compositing even when this tab is in the background
+  function hook(v) { const h = { v, id: 0 }; const cb = () => { frame(); h.id = v.requestVideoFrameCallback(cb); }; h.id = v.requestVideoFrameCallback(cb); handles.push(h); }
+
+  api.open = async function ({ mode = 'screen', mic: wantMic = true, sysAudio = false, fps: f = 30, canvas: wantCanvas = false } = {}) {
+    fps = f; micOn = wantMic;
+    try {
+      if (mode !== 'camera') screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: fps } }, audio: sysAudio });
+      if (mode !== 'screen') cam = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: wantMic });
+      else if (wantMic) { try { mic = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (_) { api.micFailed = true; } }
+      const micSrc = mic || (cam && cam.getAudioTracks().length ? cam : null);
+      const sysSrc = screen && screen.getAudioTracks().length ? screen : null;
+      let audioTrack = null;
+      if (micSrc || sysSrc) {
+        actx = new AudioContext(); actx.resume && actx.resume();
+        const dest = actx.createMediaStreamDestination(), bus = actx.createGain();
+        analyser = actx.createAnalyser(); analyser.fftSize = 512;
+        bus.connect(dest); bus.connect(analyser);
+        if (micSrc) { gain = actx.createGain(); gain.gain.value = micOn ? 1 : 0; actx.createMediaStreamSource(new MediaStream(micSrc.getAudioTracks())).connect(gain); gain.connect(bus); }
+        if (sysSrc) actx.createMediaStreamSource(new MediaStream(sysSrc.getAudioTracks())).connect(bus);
+        audioTrack = dest.stream.getAudioTracks()[0];
+      }
+      let videoTrack, preview;
+      if (mode === 'camera') { videoTrack = cam.getVideoTracks()[0]; preview = { stream: cam }; }
+      else if (mode === 'both' || wantCanvas) {
+        sv = await vid(screen); cv = cam ? await vid(cam) : null;
+        canvas = document.createElement('canvas'); canvas.width = sv.videoWidth; canvas.height = sv.videoHeight; c2 = canvas.getContext('2d');
+        frame(true); hook(sv); if (cv) hook(cv);
+        await sleep(250);                                     // let a real frame land before captureStream
+        videoTrack = canvas.captureStream(fps).getVideoTracks()[0]; preview = { canvas };
+      } else { videoTrack = screen.getVideoTracks()[0]; preview = { stream: screen }; }
+      stream = new MediaStream([videoTrack, audioTrack].filter(Boolean));
+      [screen, cam].forEach(s => { const t = s && s.getVideoTracks()[0]; if (t) t.addEventListener('ended', () => api.onEnded && api.onEnded()); });
+      return preview;
+    } catch (e) { api.close(); throw e; }
+  };
+  api.record = function ({ bitrate = 5e6 } = {}) {
+    chunks = [];
+    const mime = ['video/webm;codecs=vp8,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+    rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate, audioBitsPerSecond: 128000 });
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.start(1000); t0 = performance.now(); pausedMs = 0; pauseAt = 0;
+  };
+  api.elapsed = () => (t0 ? ((pauseAt || performance.now()) - t0 - pausedMs) / 1000 : 0);
+  api.pause = () => { if (rec && rec.state === 'recording') { rec.pause(); pauseAt = performance.now(); } };
+  api.resume = () => { if (rec && rec.state === 'paused') { rec.resume(); pausedMs += performance.now() - pauseAt; pauseAt = 0; } };
+  api.paused = () => !!(rec && rec.state === 'paused');
+  api.recording = () => !!rec && rec.state !== 'inactive';
+  api.stop = () => new Promise(resolve => {
+    if (!rec || rec.state === 'inactive') { resolve({ blob: new Blob([]), seconds: 0 }); return; }
+    const seconds = api.elapsed();
+    rec.onstop = () => { const blob = new Blob(chunks, { type: 'video/webm' }); api.close(); resolve({ blob, seconds }); };
+    rec.stop();
+  });
+  api.setMic = on => { micOn = on; if (gain) gain.gain.value = on ? 1 : 0; return !!gain; };
+  api.level = () => {                                          // 0..1 for a VU meter
+    if (!analyser) return 0;
+    const b = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(b);
+    let s = 0; for (const v of b) s += v * v;
+    const db = 20 * Math.log10(Math.sqrt(s / b.length) || 1e-5);
+    return Math.max(0, Math.min(1, (db + 60) / 60));
+  };
+  api.canvas = () => canvas;
+  api.camBox = () => (cv ? camBox() : null);
+  api.redraw = () => frame(true);
+  api.close = () => {
+    handles.forEach(h => { try { h.v.cancelVideoFrameCallback(h.id); } catch (_) {} }); handles = [];
+    [screen, cam, mic].forEach(s => s && s.getTracks().forEach(t => t.stop()));
+    if (actx) actx.close().catch(() => {});
+    screen = cam = mic = actx = gain = analyser = rec = stream = canvas = c2 = sv = cv = null; t0 = 0;
+  };
+  return api;
+})();
+
+/* ───────────── Small helpers ───────────── */
+const $ = id => document.getElementById(id);
+const fmt = s => { s = Math.floor(s); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+const stamp = () => new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/:/g, '-');
+const mb = b => (b / 1048576).toFixed(1) + ' MB';
+function nice(e) {
+  return ({ NotAllowedError: 'Cancelled, or permission was denied.', AbortError: 'Cancelled.', NotFoundError: 'No camera or microphone found.', NotReadableError: 'Your camera or mic is busy in another app.' })[e && e.name] || ('Something went wrong: ' + (e && e.message));
+}
+function countdown(n, el) {
+  return new Promise((res, rej) => {
+    el.classList.add('show'); let cancelled = false;
+    const esc = ev => { if (ev.key === 'Escape') cancelled = true; }; document.addEventListener('keydown', esc);
+    const draw = () => { el.innerHTML = '<span>' + n + '</span><small>Esc to cancel</small>'; };
+    draw();
+    const t = setInterval(() => {
+      if (cancelled) { clearInterval(t); el.classList.remove('show'); document.removeEventListener('keydown', esc); rej(Object.assign(new Error('cancelled'), { name: 'AbortError' })); return; }
+      if (--n <= 0) { clearInterval(t); el.classList.remove('show'); document.removeEventListener('keydown', esc); res(); } else draw();
+    }, 1000);
+  });
+}
+
+
+/* ───────────── Floating studio ───────────── */
+const view = $('view'), vctx = view.getContext('2d'), dock = $('dock');
+let live = false, recording = false, tool = 'none', color = '#b9f464', micOn = true, camOn = false;
+let strokes = [], cur = null, lasers = [], raf = 0, tick = null, url = null, dragCam = null;
+
+function say(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(say.t); say.t = setTimeout(() => el.classList.remove('show'), 4500); }
+
+/* Annotation layer — composited into the recorded canvas by the core, so drawings are in the video. */
+function drawStroke(c, s) {
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = s.color; c.fillStyle = s.color;
+  if (s.kind === 'hi') { c.globalAlpha = .35; c.lineWidth = 26; }
+  else c.lineWidth = 5;
+  const p = s.pts;
+  if (s.kind === 'pen' || s.kind === 'hi') {
+    c.beginPath(); c.moveTo(p[0].x, p[0].y); for (let i = 1; i < p.length; i++) c.lineTo(p[i].x, p[i].y);
+    if (p.length === 1) c.lineTo(p[0].x + .1, p[0].y); c.stroke();
+  } else if (s.kind === 'box') {
+    const a = p[0], b = p[p.length - 1]; c.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+  } else if (s.kind === 'arrow') {
+    const a = p[0], b = p[p.length - 1], ang = Math.atan2(b.y - a.y, b.x - a.x), h = 22;
+    c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+    c.beginPath(); c.moveTo(b.x, b.y);
+    c.lineTo(b.x - h * Math.cos(ang - .45), b.y - h * Math.sin(ang - .45));
+    c.lineTo(b.x - h * Math.cos(ang + .45), b.y - h * Math.sin(ang + .45)); c.closePath(); c.fill();
+  }
+  c.restore();
+}
+function layer(c) {
+  strokes.forEach(s => drawStroke(c, s));
+  if (cur) drawStroke(c, cur);
+  const now = performance.now(); lasers = lasers.filter(l => now - l.t < 900);
+  lasers.forEach(l => { const a = 1 - (now - l.t) / 900; c.save(); c.globalAlpha = a; c.fillStyle = '#ef4444'; c.shadowColor = '#ef4444'; c.shadowBlur = 24;
+    c.beginPath(); c.arc(l.x, l.y, 11 * (.5 + a / 2), 0, Math.PI * 2); c.fill(); c.restore(); });
+}
+core.layers.push(layer);
+
+function paint() {                       // mirror the compositor canvas into the visible preview
+  const src = core.canvas(); if (!src) return;
+  if (view.width !== src.width) { view.width = src.width; view.height = src.height; }
+  vctx.drawImage(src, 0, 0);
+  raf = requestAnimationFrame(paint);
+}
+function pt(e) {                         // pointer → canvas coordinates (object-fit: contain letterboxing)
+  const r = view.getBoundingClientRect(), s = Math.min(r.width / view.width, r.height / view.height);
+  const w = view.width * s, h = view.height * s, ox = r.left + (r.width - w) / 2, oy = r.top + (r.height - h) / 2;
+  return { x: (e.clientX - ox) / s, y: (e.clientY - oy) / s };
+}
+view.addEventListener('pointerdown', e => {
+  if (!live) return;
+  const p = pt(e);
+  const b = core.camBox();
+  if (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
+    dragCam = { dx: p.x - b.x, dy: p.y - b.y }; view.setPointerCapture(e.pointerId); return;
+  }
+  if (tool === 'none') return;
+  view.setPointerCapture(e.pointerId);
+  if (tool === 'laser') { lasers.push({ ...p, t: performance.now() }); cur = { laser: true }; return; }
+  cur = { kind: tool, color, pts: [p] };
+});
+view.addEventListener('pointermove', e => {
+  const p = pt(e);
+  if (dragCam) { core.cam.x = p.x - dragCam.dx; core.cam.y = p.y - dragCam.dy; return; }
+  if (!cur) { const b = core.camBox(); view.className = 'live ' + (b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h ? 'drag' : (tool !== 'none' ? 'pen' : '')); return; }
+  if (cur.laser) { lasers.push({ ...p, t: performance.now() }); return; }
+  if (cur.kind === 'arrow' || cur.kind === 'box') cur.pts[1] = p; else cur.pts.push(p);
+});
+const endPtr = () => { dragCam = null; if (cur && !cur.laser && cur.pts.length) strokes.push(cur); cur = null; };
+view.addEventListener('pointerup', endPtr); view.addEventListener('pointercancel', endPtr);
+
+function setTool(t) {
+  tool = t; if (cur) endPtr();
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  view.className = 'live ' + (t !== 'none' ? 'pen' : '');
+}
+document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+document.querySelectorAll('.sw').forEach(s => s.addEventListener('click', () => {
+  color = s.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === s));
+}));
+$('undo').addEventListener('click', () => strokes.pop());
+$('clear').addEventListener('click', () => { strokes = []; lasers = []; });
+$('qm').addEventListener('click', () => $('help').classList.toggle('show'));
+$('help').addEventListener('click', () => $('help').classList.remove('show'));
+
+/* Studio lifecycle */
+async function openStudio() {
+  try {
+    await core.open({ mode: camOn ? 'both' : 'screen', mic: micOn, canvas: true });
+    if (core.micFailed) { micOn = false; $('mic').classList.remove('on'); say('Microphone unavailable — recording without voice.'); }
+    live = true; core.onEnded = () => closeStudio(true);
+    $('empty').hidden = true; view.classList.add('live'); dock.hidden = false;
+    cancelAnimationFrame(raf); paint();
+    vuLoop();
+  } catch (e) { core.close(); live = false; if (e.name !== 'AbortError') say(nice(e)); }
+}
+async function closeStudio(ended) {
+  if (recording) await finish();
+  live = false; cancelAnimationFrame(raf); core.close();
+  view.classList.remove('live'); dock.hidden = true; $('empty').hidden = false;
+  if (ended) say('Sharing stopped.');
+}
+$('go').addEventListener('click', openStudio);
+
+async function reopen() {            // camera toggle needs a new session (stream sources change) — only when idle
+  const wasTool = tool; const keep = strokes; await closeStudio(); camOn = camOn; await openStudio(); strokes = keep; setTool(wasTool);
+}
+$('cam').addEventListener('click', async () => {
+  if (recording) return say('Turn the face bubble on or off before recording.');
+  camOn = !camOn; $('cam').classList.toggle('on', camOn); if (live) reopen();
+});
+$('mic').addEventListener('click', () => {
+  micOn = !micOn; $('mic').classList.toggle('on', micOn); core.setMic(micOn);
+  $('mic').textContent = micOn ? '🎙' : '🔇';
+});
+
+async function startRec() {
+  if (!live || recording) return;
+  try { await countdown(3, $('cd')); } catch (_) { return; }
+  core.record({ bitrate: 6e6 }); recording = true;
+  document.body.classList.add('recording'); $('reclbl').textContent = 'Stop'; $('pause').disabled = false; $('cam').disabled = true;
+  tick = setInterval(() => { $('time').textContent = fmt(core.elapsed()); }, 250);
+}
+async function finish() {
+  recording = false; clearInterval(tick); document.body.classList.remove('recording');
+  $('reclbl').textContent = 'Record'; $('pause').disabled = true; $('pause').textContent = '⏸'; $('cam').disabled = false; $('time').textContent = '00:00';
+  const { blob, seconds } = await core.stop();
+  if (!blob.size) return say('Nothing was recorded.');
+  if (url) URL.revokeObjectURL(url);
+  url = URL.createObjectURL(blob);
+  $('player').src = url; $('dl').href = url; $('dl').download = 'studio ' + stamp() + '.webm';
+  $('meta').textContent = fmt(seconds) + ' · ' + mb(blob.size);
+  $('result').classList.add('show');
+  // core.stop() released the capture → go back to the start screen so a new take is one click away
+  live = false; cancelAnimationFrame(raf); view.classList.remove('live'); dock.hidden = true; $('empty').hidden = false;
+}
+$('recb').addEventListener('click', () => (recording ? finish() : startRec()));
+$('pause').addEventListener('click', togglePause);
+function togglePause() {
+  if (!recording) return;
+  if (core.paused()) { core.resume(); $('pause').textContent = '⏸'; } else { core.pause(); $('pause').textContent = '▶'; }
+}
+$('close').addEventListener('click', () => $('result').classList.remove('show'));
+
+$('shot').addEventListener('click', shot);
+function shot() {
+  const c = core.canvas(); if (!c) return;
+  core.redraw();
+  c.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'screenshot ' + stamp() + '.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); say('Screenshot saved.'); }, 'image/png');
+}
+function vuLoop() { if (!live) return; $('vu').firstElementChild.style.width = Math.round(core.level() * 100) + '%'; setTimeout(vuLoop, 90); }
+
+/* Draggable toolbar */
+(() => {
+  let d = null;
+  $('grip').addEventListener('pointerdown', e => { const r = dock.getBoundingClientRect(); d = { dx: e.clientX - r.left, dy: e.clientY - r.top }; $('grip').setPointerCapture(e.pointerId); });
+  $('grip').addEventListener('pointermove', e => {
+    if (!d) return; dock.style.transform = 'none'; dock.style.bottom = 'auto';
+    dock.style.left = Math.max(0, Math.min(innerWidth - dock.offsetWidth, e.clientX - d.dx)) + 'px';
+    dock.style.top = Math.max(0, Math.min(innerHeight - dock.offsetHeight, e.clientY - d.dy)) + 'px';
+  });
+  $('grip').addEventListener('pointerup', () => (d = null));
+})();
+
+document.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input,textarea,select')) return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); strokes.pop(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === '?' || (e.shiftKey && k === '/')) { $('help').classList.toggle('show'); return; }
+  if (k === 'escape') { $('help').classList.remove('show'); setTool('none'); return; }
+  if (!live) return;
+  if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  else if (k === 'r') (recording ? finish() : startRec());
+  else if (k === 'm') $('mic').click();
+  else if (k === 'v') $('cam').click();
+  else if (k === 'c') $('clear').click();
+  else if (k === 's') shot();
+  else if ({ p: 'pen', h: 'hi', a: 'arrow', b: 'box', l: 'laser' }[k]) setTool({ p: 'pen', h: 'hi', a: 'arrow', b: 'box', l: 'laser' }[k]);
+});
+</script>
+</body>
+</html>
