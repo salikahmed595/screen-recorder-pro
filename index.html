@@ -3,17 +3,34 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' blob:; object-src 'none'; base-uri 'none'"/>
 <title>Screen Recorder Pro</title>
+<link rel="icon" href="data:,"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0f1117;--surface:#1a1d27;--surface2:#252836;
-  --accent:#6c63ff;--accent2:#ff6584;--text:#e8eaf6;--sub:#9095a8;
-  --red:#ef4444;--green:#22c55e;--yellow:#f59e0b;
+  /* PAICONS theme: near-black with a green tint + lime accent */
+  --bg:#0b0d0a;--surface:#12150f;--surface2:#1a2014;--line:#2a3222;
+  --accent:#b9f464;--accent-ink:#0b0d0a;--accent2:#ff6584;--text:#f2f5ee;--sub:#8e9a85;
+  --red:#ef4444;--green:#b9f464;--yellow:#f5b83d;
 }
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px 20px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:radial-gradient(900px 420px at 85% -80px,rgba(185,244,100,.07),transparent 70%),var(--bg);background-attachment:fixed;color:var(--text);min-height:100vh;padding:24px 20px}
 h1{font-size:22px;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
 .subtitle{color:var(--sub);font-size:13px;margin-bottom:24px}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,.mode-card:focus-within,.mic-pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* Desktop-only controls are invisible in the browser build. They keep whatever display
+   they naturally have (flex/block) in the desktop app, so this must out-rank later rules. */
+html:not(.is-desktop) .desktop-only{display:none!important}
+
+/* ── Banner (crash recovery) ── */
+.banner{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;
+  background:rgba(245,184,61,.08);border:1px solid var(--yellow);border-radius:10px;
+  padding:10px 14px;font-size:13px
+}
+.banner span{flex:1;min-width:200px}
 
 /* ── Mode cards ── */
 .mode-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
@@ -24,20 +41,46 @@ h1{font-size:22px;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
 }
 .mode-card:hover{background:var(--surface2)}
 .mode-card.active{border-color:var(--accent);background:var(--surface2)}
-.mode-card input{display:none}
+.mode-card input{position:absolute;opacity:0;pointer-events:none}
 .mode-card .icon{font-size:22px;margin-bottom:6px}
 .mode-card .label{font-weight:600;font-size:14px}
 .mode-card .desc{color:var(--sub);font-size:11px;margin-top:3px}
 
 /* ── Options row ── */
-.options{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.options{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end}
 .opt-group{display:flex;flex-direction:column;gap:4px}
-.opt-group label{font-size:11px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.opt-group > label,.mic-toggle > label{font-size:11px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 select,input[type=range]{
-  background:var(--surface2);border:1px solid #333;color:var(--text);
+  background:var(--surface2);border:1px solid var(--line);color:var(--text);
   padding:5px 10px;border-radius:8px;font-size:13px;outline:none;cursor:pointer
 }
+select{max-width:210px}
 select:focus{border-color:var(--accent)}
+input[type=number]{
+  background:var(--surface2);border:1px solid var(--line);color:var(--text);
+  padding:5px 8px;border-radius:8px;font-size:13px;width:78px;outline:none
+}
+input[type=number]:focus{border-color:var(--accent)}
+.chk{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;user-select:none}
+.chk input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+.chk.disabled{opacity:.45;cursor:default}
+
+/* ── Advanced options ── */
+details.adv{
+  background:var(--surface);border-radius:10px;margin-bottom:16px;padding:0 14px
+}
+details.adv summary{
+  cursor:pointer;font-size:13px;font-weight:600;color:var(--sub);padding:10px 0;
+  list-style:none;user-select:none
+}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::before{content:'▸ ';display:inline-block;transition:transform .15s}
+details.adv[open] summary::before{transform:rotate(90deg)}
+details.adv .options{margin:4px 0 14px}
+.chk-grid{display:flex;gap:8px 22px;flex-wrap:wrap;width:100%}
+.folder-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;font-size:12px;color:var(--sub)}
+.folder-line code{background:var(--surface2);border-radius:6px;padding:3px 8px;color:var(--text);max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:8px}
 
 /* ── Instruction box ── */
 #instr{
@@ -56,26 +99,24 @@ select:focus{border-color:var(--accent)}
 }
 .btn:disabled{opacity:.3;cursor:default}
 .btn:not(:disabled):active{transform:scale(.96)}
-.btn-primary{background:var(--accent);color:#fff}
+.btn-primary{background:var(--accent);color:var(--accent-ink)}
 .btn-danger{background:var(--red);color:#fff}
 .btn-warn{background:var(--yellow);color:#000}
-.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid #333}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line)}
 
 /* ── Status bar ── */
-.status-bar{display:flex;align-items:center;gap:16px;margin-bottom:12px;min-height:28px}
+.status-bar{display:flex;align-items:center;gap:16px;margin-bottom:12px;min-height:28px;flex-wrap:wrap}
 #status{font-weight:600;font-size:14px}
 #timer{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);display:none;letter-spacing:1px}
 .rec-dot{width:10px;height:10px;border-radius:50%;background:var(--red);display:none;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.rec-dot{animation:none}}
 
 /* ── Mic toggle ── */
-.mic-toggle{
-  display:flex;flex-direction:column;gap:4px
-}
-.mic-toggle label{font-size:11px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.mic-toggle{display:flex;flex-direction:column;gap:4px}
 .mic-pill{
   display:flex;align-items:center;gap:8px;background:var(--surface2);
-  border:1px solid #333;border-radius:8px;padding:5px 12px;cursor:pointer;
+  border:1px solid var(--line);border-radius:8px;padding:5px 12px;cursor:pointer;
   user-select:none;transition:border-color .15s
 }
 .mic-pill.on {border-color:var(--green)}
@@ -83,13 +124,13 @@ select:focus{border-color:var(--accent)}
 .mic-icon{font-size:15px;line-height:1}
 .mic-label{font-size:13px;font-weight:600;min-width:22px}
 .mic-track{
-  width:34px;height:18px;border-radius:9px;background:#444;
+  width:34px;height:18px;border-radius:9px;background:#3a4530;
   position:relative;transition:background .2s;flex-shrink:0
 }
 .mic-pill.on  .mic-track{background:var(--green)}
 .mic-pill.off .mic-track{background:var(--red)}
 .mic-thumb{
-  width:12px;height:12px;border-radius:50%;background:#fff;
+  width:12px;height:12px;border-radius:50%;background:#0b0d0a;
   position:absolute;top:3px;left:3px;transition:left .2s
 }
 .mic-pill.on .mic-thumb{left:19px}
@@ -98,14 +139,16 @@ select:focus{border-color:var(--accent)}
 #meter-wrap{display:none;flex-direction:column;gap:2px}
 #meter-wrap span{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
 #meter{width:120px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
-#meter-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--red));border-radius:4px;transition:width .07s}
+#meter.clip{box-shadow:0 0 0 1px var(--red)}
+#meter-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--green) 0%,var(--green) 60%,var(--yellow) 82%,var(--red) 100%);background-size:120px 100%;border-radius:4px;transition:width .07s}
 
 /* ── Countdown ── */
 #countdown{
   position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;
-  align-items:center;justify-content:center;z-index:999;font-size:120px;
-  font-weight:900;color:#fff;text-shadow:0 4px 32px rgba(108,99,255,.8)
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:999;font-size:120px;
+  font-weight:900;color:#fff;text-shadow:0 4px 40px rgba(185,244,100,.55)
 }
+#countdown small{font-size:14px;font-weight:500;text-shadow:none;color:var(--sub)}
 
 /* ── View area ── */
 #view{
@@ -113,14 +156,14 @@ select:focus{border-color:var(--accent)}
   overflow:hidden;margin-top:4px;position:relative
 }
 #mainVideo{width:100%;display:block}
-#composite{width:100%;display:none}
+#composite{width:100%;display:none;touch-action:none}
 .view-label{
   position:absolute;top:10px;left:12px;background:rgba(0,0,0,.55);
   color:#fff;font-size:11px;padding:3px 8px;border-radius:20px;
   backdrop-filter:blur(4px);pointer-events:none
 }
 
-/* ── Drawing toolbar (laser/annotate) ── */
+/* ── Drawing toolbar ── */
 #draw-bar{
   position:absolute;top:10px;right:12px;display:none;
   flex-direction:column;gap:6px;z-index:10
@@ -130,38 +173,90 @@ select:focus{border-color:var(--accent)}
   font-size:16px;background:rgba(20,20,30,.75);color:#fff;
   backdrop-filter:blur(4px);transition:background .15s
 }
-.draw-btn.active{background:var(--accent)}
+.draw-btn.active{background:var(--accent);color:var(--accent-ink)}
 .color-dot{width:18px;height:18px;border-radius:50%;border:2px solid #fff;cursor:pointer;margin:0 auto}
 
-/* ── Preview modal ── */
-#preview-modal{
+/* ── Modals ── */
+.modal{
   position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;
-  align-items:center;justify-content:center;z-index:1000;padding:20px
+  align-items:center;justify-content:center;z-index:1000;padding:20px;overflow:auto
 }
-#preview-modal .modal-box{
+.modal .modal-box{
   background:var(--surface);border-radius:16px;padding:20px;
-  max-width:860px;width:100%
+  max-width:860px;width:100%;max-height:100%;overflow:auto
 }
-#preview-modal video{width:100%;border-radius:10px;max-height:60vh}
-.modal-meta{font-size:12px;color:var(--sub);margin-top:10px;display:flex;align-items:center;gap:10px}
-.fmt-badge{background:var(--surface2);border:1px solid #333;border-radius:5px;padding:2px 8px;font-weight:600;font-size:11px;letter-spacing:.5px}
-.fmt-badge.mp4{border-color:var(--green);color:var(--green)}
+#preview-modal video{width:100%;border-radius:10px;max-height:52vh;background:#000}
+.modal-meta{font-size:12px;color:var(--sub);margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fmt-badge{background:var(--surface2);border:1px solid var(--line);border-radius:5px;padding:2px 8px;font-weight:600;font-size:11px;letter-spacing:.5px}
 .fmt-badge.webm{border-color:var(--accent);color:var(--accent)}
-.modal-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
 #mp4Unavail{font-size:11px;color:var(--sub);margin-top:6px;text-align:right;display:none}
+.is-desktop #mp4Unavail{display:none!important}
+.tool-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--sub)}
+.tool-row b{color:var(--text);font-size:12px;min-width:44px}
+.tool-row .info{margin-left:auto}
+.no-preview{padding:36px 16px;text-align:center;color:var(--sub);font-size:13px;background:#000;border-radius:10px}
+
+/* ── Export progress ── */
+.progress{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--sub)}
+.progress .bar{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.progress .bar div{height:100%;width:0%;background:var(--accent);transition:width .2s}
+.progress .bar.indeterminate div{width:35%;animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{0%{margin-left:-35%}100%{margin-left:100%}}
+
+/* ── Source picker ── */
+#source-modal .modal-box{max-width:920px}
+.tabs{display:flex;gap:6px;margin:10px 0 12px}
+.tab{
+  background:var(--surface2);border:1px solid var(--line);color:var(--sub);padding:6px 16px;
+  border-radius:8px;font-size:13px;font-weight:600;cursor:pointer
+}
+.tab.active{color:var(--accent);border-color:var(--accent)}
+#source-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;
+  max-height:50vh;overflow:auto;padding:2px
+}
+.src-card{
+  background:var(--surface2);border:2px solid transparent;border-radius:10px;padding:8px;
+  cursor:pointer;color:var(--text);text-align:left;display:flex;flex-direction:column;gap:6px
+}
+.src-card:hover{border-color:#3a4530}
+.src-card.sel{border-color:var(--accent)}
+.src-card img.thumb{width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:6px;display:block}
+.src-card .nm{display:flex;align-items:center;gap:6px;font-size:12px;overflow:hidden}
+.src-card .nm img{width:16px;height:16px;flex-shrink:0}
+.src-card .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src-empty{grid-column:1/-1;color:var(--sub);font-size:13px;padding:30px;text-align:center}
+
+/* ── Toast ── */
+#toast{
+  position:fixed;left:50%;bottom:22px;transform:translate(-50%,30px);opacity:0;pointer-events:none;
+  background:var(--surface2);border:1px solid #3a4530;border-radius:10px;padding:10px 14px;font-size:13px;
+  display:flex;align-items:center;gap:12px;z-index:1100;max-width:90vw;transition:opacity .2s,transform .2s;
+  box-shadow:0 8px 28px rgba(0,0,0,.5)
+}
+#toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#toast button{background:none;border:none;color:var(--accent);font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap}
 
 /* ── Hotkey hint ── */
-.keys{font-size:11px;color:var(--sub);margin-top:8px}
+.keys{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.9}
 .keys kbd{
-  background:var(--surface2);border:1px solid #444;border-radius:4px;
+  background:var(--surface2);border:1px solid #3a4530;border-radius:4px;
   padding:1px 5px;font-family:monospace;font-size:11px
 }
 </style>
 </head>
 <body>
 
-<h1>⬤ Screen Recorder Pro</h1>
+<h1><span style="color:var(--accent)">⬤</span> Screen Recorder <span style="color:var(--accent)">Pro</span></h1>
 <p class="subtitle">Record screen · camera · voice — one file, no upload, no limits</p>
+
+<!-- Crash recovery (desktop app) -->
+<div class="banner" id="recoveryBanner" hidden>
+  <span id="recoveryText"></span>
+  <button class="btn btn-primary btn-sm" id="recoverBtn">Recover</button>
+  <button class="btn btn-ghost btn-sm" id="recoveryDeleteBtn">Delete</button>
+</div>
 
 <!-- Mode selector -->
 <div class="mode-grid">
@@ -169,7 +264,7 @@ select:focus{border-color:var(--accent)}
     <input type="radio" name="mode" value="screen" checked/>
     <div class="icon">🖥️</div>
     <div class="label">Screen only</div>
-    <div class="desc">Tab / window + mic</div>
+    <div class="desc" id="descScreen">Tab / window + mic</div>
   </label>
   <label class="mode-card">
     <input type="radio" name="mode" value="camera"/>
@@ -188,7 +283,7 @@ select:focus{border-color:var(--accent)}
 <!-- Options row -->
 <div class="options">
   <div class="opt-group" id="opt-quality">
-    <label>Quality</label>
+    <label for="qualitySelect">Quality</label>
     <select id="qualitySelect">
       <option value="8000000">Ultra (8 Mbps)</option>
       <option value="4000000" selected>High (4 Mbps)</option>
@@ -196,8 +291,39 @@ select:focus{border-color:var(--accent)}
       <option value="1000000">Low (1 Mbps)</option>
     </select>
   </div>
+  <div class="opt-group">
+    <label for="fpsSelect">Frame rate</label>
+    <select id="fpsSelect">
+      <option value="15">15 fps</option>
+      <option value="24">24 fps</option>
+      <option value="30" selected>30 fps</option>
+      <option value="60">60 fps</option>
+    </select>
+  </div>
+  <div class="opt-group">
+    <label for="countdownSelect">Countdown</label>
+    <select id="countdownSelect">
+      <option value="0">Off</option>
+      <option value="3" selected>3 seconds</option>
+      <option value="5">5 seconds</option>
+      <option value="10">10 seconds</option>
+    </select>
+  </div>
+  <div class="opt-group">
+    <label for="autoStopSelect">Auto-stop</label>
+    <select id="autoStopSelect">
+      <option value="0" selected>Never</option>
+      <option value="60">After 1 min</option>
+      <option value="300">After 5 min</option>
+      <option value="600">After 10 min</option>
+      <option value="900">After 15 min</option>
+      <option value="1800">After 30 min</option>
+      <option value="3600">After 1 hour</option>
+      <option value="7200">After 2 hours</option>
+    </select>
+  </div>
   <div class="opt-group" id="opt-campos" style="display:none">
-    <label>Cam position</label>
+    <label for="camPosSelect">Cam position</label>
     <select id="camPosSelect">
       <option value="br" selected>Bottom right</option>
       <option value="bl">Bottom left</option>
@@ -206,25 +332,62 @@ select:focus{border-color:var(--accent)}
     </select>
   </div>
   <div class="opt-group" id="opt-camshape" style="display:none">
-    <label>Cam shape</label>
+    <label for="camShapeSelect">Cam shape</label>
     <select id="camShapeSelect">
       <option value="round" selected>Circle</option>
       <option value="rect">Rectangle</option>
     </select>
   </div>
   <div class="opt-group" id="opt-camsize" style="display:none">
-    <label>Cam size</label>
+    <label for="camSizeRange">Cam size</label>
     <input type="range" id="camSizeRange" min="10" max="35" value="22" style="width:90px"/>
   </div>
   <div class="mic-toggle">
     <label>Microphone</label>
-    <div class="mic-pill on" id="micToggle" title="Toggle microphone on/off">
+    <div class="mic-pill on" id="micToggle" role="switch" aria-checked="true" tabindex="0" title="Toggle microphone on/off (M) — works while recording too">
       <span class="mic-icon" id="micIcon">🎙️</span>
       <span class="mic-label" id="micLabel">On</span>
       <div class="mic-track"><div class="mic-thumb"></div></div>
     </div>
   </div>
 </div>
+
+<!-- Advanced options -->
+<details class="adv" id="adv">
+  <summary>More options — devices, audio, tools</summary>
+  <div class="options">
+    <div class="opt-group">
+      <label for="micSelect">Microphone device</label>
+      <select id="micSelect"><option value="">Default microphone</option></select>
+    </div>
+    <div class="opt-group">
+      <label for="micVolume">Mic volume <span id="micVolLabel">100%</span></label>
+      <input type="range" id="micVolume" min="0" max="200" value="100" style="width:130px"/>
+    </div>
+    <div class="opt-group">
+      <label for="camSelect">Camera device</label>
+      <select id="camSelect"><option value="">Default camera</option></select>
+    </div>
+  </div>
+  <div class="options">
+    <div class="chk-grid">
+      <label class="chk"><input type="checkbox" id="nsChk" checked/> Noise suppression</label>
+      <label class="chk"><input type="checkbox" id="ecChk" checked/> Echo cancellation</label>
+      <label class="chk"><input type="checkbox" id="agChk" checked/> Auto gain</label>
+      <label class="chk"><input type="checkbox" id="mirrorChk" checked/> Mirror camera overlay</label>
+      <label class="chk" id="sysAudioLbl"><input type="checkbox" id="sysAudioChk"/> <span id="sysAudioText">Also share tab audio</span></label>
+      <label class="chk" title="Records through a canvas so you can draw on the live preview. Slightly more CPU."><input type="checkbox" id="drawInScreenChk"/> Draw tools in Screen-only mode</label>
+      <label class="chk desktop-only" title="Keeps the recorder out of your recording. Turn off to use the draw tools on the live preview."><input type="checkbox" id="minimizeChk" checked/> Minimize app while recording</label>
+    </div>
+  </div>
+  <div class="options desktop-only">
+    <div class="folder-line">
+      <span>Save folder:</span> <code id="saveDirLabel">—</code>
+      <button class="btn btn-ghost btn-sm" id="chooseFolderBtn">Change…</button>
+      <button class="btn btn-ghost btn-sm" id="openFolderBtn">Open</button>
+    </div>
+  </div>
+</details>
 
 <!-- Step-by-step instructions -->
 <div id="instr"></div>
@@ -235,13 +398,13 @@ select:focus{border-color:var(--accent)}
   <button class="btn btn-warn"    id="pauseBtn"  disabled>⏸ Pause</button>
   <button class="btn btn-ghost"   id="resumeBtn" disabled>⏵ Resume</button>
   <button class="btn btn-danger"  id="stopBtn"   disabled>⏹ Stop</button>
-  <button class="btn btn-ghost"   id="screenshotBtn" disabled title="Take screenshot">📸</button>
+  <button class="btn btn-ghost"   id="screenshotBtn" disabled title="Take screenshot (S)" aria-label="Take screenshot">📸</button>
 </div>
 
 <!-- Status + timer + meter -->
 <div class="status-bar">
   <div class="rec-dot" id="recDot"></div>
-  <div id="status">Ready</div>
+  <div id="status" role="status" aria-live="polite">Ready</div>
   <div id="timer">00:00</div>
   <div id="meter-wrap">
     <span>Audio</span>
@@ -253,7 +416,10 @@ select:focus{border-color:var(--accent)}
 <div class="keys">
   <kbd>Space</kbd> Pause/Resume &nbsp;
   <kbd>Esc</kbd> Stop &nbsp;
-  <kbd>S</kbd> Screenshot (during recording)
+  <kbd>S</kbd> Screenshot &nbsp;
+  <kbd>M</kbd> Mute mic &nbsp;
+  <kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo drawing
+  <div class="desktop-only" id="globalKeys"></div>
 </div>
 
 <!-- Countdown overlay -->
@@ -266,34 +432,99 @@ select:focus{border-color:var(--accent)}
   <canvas id="composite"></canvas>
   <!-- Drawing/annotation toolbar -->
   <div id="draw-bar">
-    <button class="draw-btn" id="laserBtn" title="Laser pointer">🔴</button>
-    <button class="draw-btn" id="penBtn"   title="Draw">✏️</button>
-    <button class="draw-btn" id="clearBtn" title="Clear">🗑️</button>
+    <button class="draw-btn" data-tool="laser" title="Laser pointer" aria-label="Laser pointer">🔴</button>
+    <button class="draw-btn" data-tool="pen"   title="Pen" aria-label="Pen">✏️</button>
+    <button class="draw-btn" data-tool="hl"    title="Highlighter" aria-label="Highlighter">🖍️</button>
+    <button class="draw-btn" data-tool="arrow" title="Arrow" aria-label="Arrow">↗</button>
+    <button class="draw-btn" data-tool="rect"  title="Rectangle" aria-label="Rectangle">▭</button>
+    <button class="draw-btn" id="undoBtn"  title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+    <button class="draw-btn" id="clearBtn" title="Clear all drawings" aria-label="Clear drawings">🗑️</button>
     <div class="color-dot" id="colorPick" style="background:#ff6584" title="Color"></div>
     <input type="color" id="colorInput" value="#ff6584" style="display:none"/>
   </div>
 </div>
 
-<!-- Preview-before-download modal -->
-<div id="preview-modal">
+<!-- Source picker (desktop app) -->
+<div class="modal" id="source-modal">
   <div class="modal-box">
-    <h3 style="margin-bottom:10px">Preview recording</h3>
-    <video id="previewVid" controls></video>
-    <div class="modal-meta">
-      <span id="fmtWebm" class="fmt-badge webm">WebM</span>
-      <span id="fmtMp4"  class="fmt-badge mp4"  style="display:none">MP4</span>
-      <span id="recSize"></span>
+    <h3>Choose what to record</h3>
+    <div class="tabs">
+      <button class="tab active" data-kind="screen" type="button">Screens</button>
+      <button class="tab" data-kind="window" type="button">Windows</button>
     </div>
+    <div id="source-grid"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost"   id="discardBtn">🗑 Discard</button>
-      <button class="btn btn-ghost"   id="dlWebmBtn">⬇ Save as WebM</button>
-      <button class="btn btn-primary" id="dlMp4Btn">⬇ Save as MP4</button>
+      <button class="btn btn-ghost" id="srcCancel">Cancel</button>
+      <button class="btn btn-primary" id="srcOk" disabled>▶ Start recording</button>
     </div>
-    <div id="mp4Unavail">⚠ MP4 export requires the desktop app</div>
   </div>
 </div>
 
+<!-- Preview-before-save modal -->
+<div class="modal" id="preview-modal">
+  <div class="modal-box">
+    <h3 style="margin-bottom:10px">Preview recording</h3>
+    <video id="previewVid" controls></video>
+    <div class="no-preview" id="noPreview" hidden>This recording is too large to preview — you can still export it below.</div>
+    <div class="modal-meta">
+      <span class="fmt-badge webm">WebM</span>
+      <span id="recSize"></span>
+      <span id="recDur"></span>
+    </div>
+
+    <!-- Trim (desktop app: done with the bundled ffmpeg) -->
+    <div class="tool-row desktop-only" id="trimRow">
+      <b>Trim</b>
+      <label for="trimStart">Start</label><input type="number" id="trimStart" min="0" step="0.1" value="0"/>
+      <button class="btn btn-ghost btn-sm" id="setStartBtn" title="Use the current playback position">⇤ Set</button>
+      <label for="trimEnd">End</label><input type="number" id="trimEnd" min="0" step="0.1" placeholder="end"/>
+      <button class="btn btn-ghost btn-sm" id="setEndBtn" title="Use the current playback position">⇥ Set</button>
+      <button class="btn btn-ghost btn-sm" id="resetTrimBtn">Reset</button>
+      <span class="info" id="trimInfo"></span>
+    </div>
+    <div class="tool-row desktop-only">
+      <b>GIF</b>
+      <label for="gifFpsSelect">Frame rate</label>
+      <select id="gifFpsSelect">
+        <option value="8">8 fps</option><option value="12">12 fps</option>
+        <option value="15" selected>15 fps</option><option value="20">20 fps</option>
+      </select>
+      <label for="gifWidthSelect">Width</label>
+      <select id="gifWidthSelect">
+        <option value="480">480 px</option><option value="640" selected>640 px</option>
+        <option value="800">800 px</option><option value="0">Original</option>
+      </select>
+      <label class="chk info"><input type="checkbox" id="askWhereChk" checked/> Ask where to save</label>
+    </div>
+
+    <div class="progress" id="exportProgress" hidden>
+      <div class="bar" id="exportBarWrap"><div id="exportBar"></div></div>
+      <span id="exportText">Exporting…</span>
+      <button class="btn btn-ghost btn-sm" id="exportCancelBtn">Cancel</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost"   id="discardBtn">🗑 Discard</button>
+      <button class="btn btn-ghost"   id="dlGifBtn">⬇ Save as GIF</button>
+      <button class="btn btn-ghost"   id="dlWebmBtn">⬇ Save as WebM</button>
+      <button class="btn btn-primary" id="dlMp4Btn">⬇ Save as MP4</button>
+    </div>
+    <div id="mp4Unavail">⚠ MP4 and GIF export, trimming and auto-save need the desktop app</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" role="status" aria-live="polite"><span id="toastText"></span><button id="toastAction" hidden></button></div>
+
 <script>
+'use strict';
+// ── Environment ───────────────────────────────────────────────────────
+// `window.electronAPI` only exists in the desktop app (see preload.js); the same page
+// also runs as a plain web app on GitHub Pages, so every desktop feature is optional.
+const api = window.electronAPI || null;
+const IS_DESKTOP = !!api;
+document.documentElement.classList.toggle('is-desktop', IS_DESKTOP);
+
 // ── DOM refs ──────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id);
 const startBtn     = $('startBtn'),    pauseBtn    = $('pauseBtn');
@@ -301,30 +532,51 @@ const resumeBtn    = $('resumeBtn'),   stopBtn     = $('stopBtn');
 const screenshotBtn= $('screenshotBtn');
 const statusEl     = $('status'),      timerEl     = $('timer');
 const recDot       = $('recDot'),      meterWrap   = $('meter-wrap');
-const meterBar     = $('meter-bar'),   countdownEl = $('countdown');
+const meterEl      = $('meter'),       meterBar    = $('meter-bar');
+const countdownEl  = $('countdown');
 const instrEl      = $('instr'),       viewEl      = $('view');
 const mainVideo    = $('mainVideo'),   composite   = $('composite');
 const ctx          = composite.getContext('2d');
 const viewLabel    = $('viewLabel');
 const drawBar      = $('draw-bar');
-const previewModal = $('preview-modal');
-const previewVid   = $('previewVid');
-const dlWebmBtn    = $('dlWebmBtn'),   dlMp4Btn    = $('dlMp4Btn');
+const previewModal = $('preview-modal'), previewVid = $('previewVid');
+const sourceModal  = $('source-modal');
+const dlWebmBtn    = $('dlWebmBtn'),   dlMp4Btn    = $('dlMp4Btn'), dlGifBtn = $('dlGifBtn');
 const discardBtn   = $('discardBtn');
-const camPosOpt    = $('opt-campos'),  camShapeOpt = $('opt-camshape');
-const camSizeOpt   = $('opt-camsize');
 const colorDot     = $('colorPick'),   colorInput  = $('colorInput');
+const qualitySelect= $('qualitySelect'), fpsSelect = $('fpsSelect');
+const countdownSelect = $('countdownSelect'), autoStopSelect = $('autoStopSelect');
+const micSelect    = $('micSelect'),   camSelect   = $('camSelect');
+const micVolume    = $('micVolume');
+const nsChk = $('nsChk'), ecChk = $('ecChk'), agChk = $('agChk'), mirrorChk = $('mirrorChk');
+const sysAudioChk = $('sysAudioChk'), drawInScreenChk = $('drawInScreenChk'), minimizeChk = $('minimizeChk');
+const askWhereChk = $('askWhereChk');
+const trimStart = $('trimStart'), trimEnd = $('trimEnd'), trimInfo = $('trimInfo');
+const gifFpsSelect = $('gifFpsSelect'), gifWidthSelect = $('gifWidthSelect');
 
-// ── Mic toggle ────────────────────────────────────────────────────────
-let micOn = true;
-$('micToggle').addEventListener('click', ()=>{
-  micOn = !micOn;
-  const el = $('micToggle');
-  el.classList.toggle('on',  micOn);
-  el.classList.toggle('off', !micOn);
-  $('micIcon').textContent  = micOn ? '🎙️' : '🔇';
-  $('micLabel').textContent = micOn ? 'On' : 'Off';
-});
+// ── Persistent settings ───────────────────────────────────────────────
+const SETTINGS_KEY = 'srp.settings.v1';
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (_) { saved = {}; }
+function persist(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(saved)); } catch (_) { /* private mode etc. */ } }
+
+// Restores a control from saved settings (ignoring values a <select> no longer offers)
+// and saves it again whenever the user changes it.
+function bind(el, key){
+  const isCheck = el.type === 'checkbox';
+  if(saved[key] !== undefined){
+    if(isCheck) el.checked = !!saved[key];
+    else if(el.tagName !== 'SELECT' || [...el.options].some(o => o.value === String(saved[key]))) el.value = saved[key];
+  }
+  el.addEventListener('change', () => { saved[key] = isCheck ? el.checked : el.value; persist(); });
+}
+[
+  [qualitySelect,'quality'], [fpsSelect,'fps'], [countdownSelect,'countdown'], [autoStopSelect,'autoStop'],
+  [$('camPosSelect'),'camPos'], [$('camShapeSelect'),'camShape'], [$('camSizeRange'),'camSize'],
+  [micVolume,'micVolume'], [nsChk,'ns'], [ecChk,'ec'], [agChk,'ag'], [mirrorChk,'mirror'],
+  [sysAudioChk,'sysAudio'], [drawInScreenChk,'drawInScreen'], [minimizeChk,'minimize'],
+  [askWhereChk,'askWhere'], [gifFpsSelect,'gifFps'], [gifWidthSelect,'gifWidth'],
+].forEach(([el, key]) => bind(el, key));
 
 // ── State ─────────────────────────────────────────────────────────────
 // NOTE: we deliberately do NOT use MediaRecorder's native "video/mp4" mode.
@@ -333,93 +585,185 @@ $('micToggle').addEventListener('click', ()=>{
 // video editors) only read the first fragment (~a few seconds) and treat
 // the rest of the file as corrupt. Instead we always record reliably to
 // WebM, then transcode to a real, fully-indexed, faststart MP4 via ffmpeg
-// in the Electron main process (see main.js "export-mp4" handler).
-let recWebm  = null, chunksWebm = [];
-let blobWebm = null;
-let stopCount= 0;
-let screenStream= null, camStream = null, audioCtx = null;
-let drawVid     = null, vfcId    = null;
-let timerIntvl  = null, elapsedSec= 0;
-let meterRaf    = null, analyser  = null;
+// in the Electron main process (see lib/ffmpeg-args.js + main.js "export:run").
+let recState = 'idle';               // idle | starting | recording | paused | stopping
+let cancelStart = false;
+let recWebm = null, chunksWebm = [], blobWebm = null;
+let screenStream = null, camStream = null, micStream = null, audioCtx = null;
+let micGainNode = null, analyser = null;
+let vfcHandles = [];                 // requestVideoFrameCallback handles (one per source video)
+let lastScreenVid = null, lastCamVid = null, lastRender = 0, minFrameMs = 25;
+let timerIntvl = null, meterRaf = null;
+let recStartPerf = 0, pausedAccum = 0, pauseStartedPerf = 0, recordedSeconds = 0, autoStopSec = 0;
+// Desktop only: chunks are mirrored to disk as they arrive (crash recovery, big-file export).
+let recId = null, diskOk = false, diskQueue = Promise.resolve();
+let hasSaved = false, exporting = false, lastSavedPath = null;
+let micOn = saved.micOn !== undefined ? !!saved.micOn : true;
 
-// Drawing state (laser/pen on composite canvas)
-let drawMode    = null; // 'laser'|'pen'|null
-let drawColor   = '#ff6584';
-let isDrawing   = false;
-let drawPx      = 0, drawPy = 0;
+// ── Toast ─────────────────────────────────────────────────────────────
+let toastTimer = null;
+function hideToast(){ $('toast').classList.remove('show'); }
+function toast(text, actionLabel, actionFn, ms = 6000){
+  $('toastText').textContent = text;
+  const btn = $('toastAction');
+  if(actionLabel){
+    btn.hidden = false; btn.textContent = actionLabel;
+    btn.onclick = () => { hideToast(); actionFn && actionFn(); };
+  } else { btn.hidden = true; btn.onclick = null; }
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, ms);
+}
+
+// ── Mic toggle (works live while recording — it drives a GainNode) ────
+function micVol(){ return (parseInt(micVolume.value, 10) || 0) / 100; }
+function renderMic(){
+  const el = $('micToggle');
+  el.classList.toggle('on',  micOn);
+  el.classList.toggle('off', !micOn);
+  el.setAttribute('aria-checked', String(micOn));
+  $('micIcon').textContent  = micOn ? '🎙️' : '🔇';
+  $('micLabel').textContent = micOn ? 'On' : 'Off';
+}
+function toggleMic(){
+  const active = recState === 'recording' || recState === 'paused';
+  // A recording that started without a mic has nothing to un-mute.
+  if(active && !micGainNode){ toast('This recording was started without a microphone.'); return; }
+  micOn = !micOn;
+  saved.micOn = micOn; persist();
+  renderMic();
+  if(micGainNode) micGainNode.gain.value = micOn ? micVol() : 0;
+  if(active) toast(micOn ? 'Microphone on' : 'Microphone muted', null, null, 1500);
+}
+$('micToggle').addEventListener('click', toggleMic);
+$('micToggle').addEventListener('keydown', e => { if(e.code === 'Enter'){ e.preventDefault(); toggleMic(); } });
+micVolume.addEventListener('input', () => {
+  $('micVolLabel').textContent = micVol() * 100 + '%';
+  if(micGainNode && micOn) micGainNode.gain.value = micVol();
+});
+$('micVolLabel').textContent = Math.round(micVol() * 100) + '%';
+renderMic();
 
 // ── Mode UI ───────────────────────────────────────────────────────────
-const INSTRS = {
-  screen:`<b>Screen only steps:</b><br>
+function instrFor(m){
+  if(m === 'camera') return '';
+  if(IS_DESKTOP){
+    const both = m === 'both';
+    return `<b>${both ? 'Screen + Camera' : 'Screen only'} steps:</b><br>
+      1. Click <b>▶ Start</b> (or press <b>Ctrl+Shift+F9</b> from anywhere)<br>
+      2. Pick a <b>screen or window</b> → <b>Start recording</b>${both ? ' → allow camera' : ''}<br>
+      3. The app minimizes so it stays out of your video — work normally<br>
+      4. Stop with <b>Ctrl+Shift+F9</b> or the tray icon → preview, trim, save as MP4 / GIF / WebM`;
+  }
+  if(m === 'screen') return `<b>Screen only steps:</b><br>
     1. Click <b>▶ Start</b> → Chrome share dialog opens<br>
     2. Go to <b>"Chrome Tab"</b> tab → pick the tab you want to record<br>
-    3. Click <b>Share</b> → allow mic → 3s countdown → recording starts<br>
+    3. Click <b>Share</b> → allow mic → countdown → recording starts<br>
     4. Switch to that tab and work normally — mic records your voice<br>
-    5. Return here → <b>⏹ Stop</b> → preview → download`,
-  both:`<b>Screen + Camera steps:</b><br>
+    5. Return here → <b>⏹ Stop</b> → preview → download`;
+  return `<b>Screen + Camera steps:</b><br>
     1. Click <b>▶ Start</b> → share dialog opens<br>
     2. Choose <b>"Chrome Tab"</b> → pick <b>a different tab</b> (ChatGPT, Docs, YouTube…)<br>
     <span class="warn">⚠ Do NOT pick this recorder tab — it creates a mirror loop</span><br>
-    3. Click <b>Share</b> → allow camera & mic → 3s countdown<br>
+    3. Click <b>Share</b> → allow camera & mic → countdown<br>
     4. Switch to your selected tab and work — recorder runs silently in background<br>
-    5. Return here → <b>⏹ Stop</b> → preview → download one combined video`
-};
+    5. Return here → <b>⏹ Stop</b> → preview → download one combined video`;
+}
 
 function getMode(){ return document.querySelector('input[name="mode"]:checked').value }
 
+function setMode(m){
+  const radio = document.querySelector(`input[name="mode"][value="${m}"]`);
+  if(!radio) return;
+  radio.checked = true;
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('active', c.contains(radio)));
+  const html = instrFor(m);
+  instrEl.innerHTML = html;
+  instrEl.style.display = html ? 'block' : 'none';
+  ['opt-campos','opt-camshape','opt-camsize'].forEach(id => { $(id).style.display = m === 'both' ? 'flex' : 'none'; });
+  saved.mode = m; persist();
+}
 document.querySelectorAll('.mode-card').forEach(card => {
   card.addEventListener('click', () => {
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
-    card.classList.add('active');
-    const m = card.querySelector('input').value;
-    instrEl.innerHTML = INSTRS[m] || '';
-    instrEl.style.display = INSTRS[m] ? 'block' : 'none';
-    camPosOpt.style.display   = m === 'both' ? 'block' : 'none';
-    camShapeOpt.style.display = m === 'both' ? 'block' : 'none';
-    camSizeOpt.style.display  = m === 'both' ? 'block' : 'none';
+    if(recState !== 'idle') return; // can't switch modes mid-recording
+    setMode(card.querySelector('input').value);
   });
 });
-// Init instructions for default mode (screen)
-instrEl.innerHTML = INSTRS.screen;
-instrEl.style.display = 'block';
+setMode(['screen','camera','both'].includes(saved.mode) ? saved.mode : 'screen');
+if(IS_DESKTOP) $('descScreen').textContent = 'Any screen or window';
 
 // ── Helpers ───────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 function setStatus(s){ statusEl.textContent = s }
-
+function fmtSize(bytes){ return (bytes/1024/1024).toFixed(1)+' MB'; }
+function stamp(d = new Date()){
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+}
 function fmtTime(s){
-  const m = String(Math.floor(s/60)).padStart(2,'0');
-  const sec = String(s%60).padStart(2,'0');
-  return `${m}:${sec}`;
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  const mm = String(m).padStart(2,'0'), ss = String(sec).padStart(2,'0');
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+function abortError(){ const e = new Error('Cancelled'); e.name = 'AbortError'; return e; }
+function friendly(err){
+  switch(err && err.name){
+    case 'AbortError':    return 'Cancelled';
+    case 'NotAllowedError': return 'Permission denied or cancelled';
+    case 'NotFoundError': return 'No camera or microphone found';
+    case 'NotReadableError': return 'The camera or microphone is being used by another app';
+    default: return 'Error: ' + ((err && err.message) || err);
+  }
 }
 
+// ── Timer ─────────────────────────────────────────────────────────────
+// Based on performance.now(), not on counting setInterval ticks: browsers throttle
+// timers in background tabs (to once a minute after a while), which would make a
+// tick-counting timer — and the auto-stop — drift badly during long recordings.
+function elapsedMs(){
+  if(!recStartPerf) return 0;
+  return (pauseStartedPerf || performance.now()) - recStartPerf - pausedAccum;
+}
+function tickTimer(){
+  const s = Math.floor(elapsedMs() / 1000);
+  timerEl.textContent = fmtTime(s);
+  if(autoStopSec && s >= autoStopSec && recState === 'recording'){
+    toast('Auto-stop reached');
+    stop();
+  }
+}
 function startTimer(){
-  elapsedSec = 0;
+  recStartPerf = performance.now(); pausedAccum = 0; pauseStartedPerf = 0;
   timerEl.textContent = '00:00';
   timerEl.style.display = 'block';
   recDot.style.display = 'block';
-  timerIntvl = setInterval(()=>{ elapsedSec++; timerEl.textContent = fmtTime(elapsedSec); }, 1000);
+  clearInterval(timerIntvl);
+  timerIntvl = setInterval(tickTimer, 250);
 }
 function stopTimer(){
   clearInterval(timerIntvl); timerIntvl = null;
   timerEl.style.display = 'none';
   recDot.style.display = 'none';
+  recStartPerf = 0; pausedAccum = 0; pauseStartedPerf = 0;
 }
 
 function runCountdown(n){
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     countdownEl.style.display = 'flex';
-    countdownEl.textContent = n;
-    const t = setInterval(()=>{
+    const render = () => { countdownEl.innerHTML = `${n}<small>Press Esc to cancel</small>`; };
+    render();
+    const t = setInterval(() => {
+      if(cancelStart){ clearInterval(t); countdownEl.style.display = 'none'; reject(abortError()); return; }
       n--;
-      if(n <= 0){ clearInterval(t); countdownEl.style.display='none'; resolve(); }
-      else countdownEl.textContent = n;
+      if(n <= 0){ clearInterval(t); countdownEl.style.display = 'none'; resolve(); }
+      else render();
     }, 1000);
   });
 }
 
 function waitForVideo(vid){
-  return new Promise(resolve=>{
-    const check = () => (vid.videoWidth > 0 && vid.videoHeight > 0) ? resolve() : setTimeout(check,50);
+  return new Promise(resolve => {
+    const check = () => (vid.videoWidth > 0 && vid.videoHeight > 0) ? resolve() : setTimeout(check, 50);
     check();
   });
 }
@@ -432,32 +776,114 @@ async function makeOffscreenVideo(stream){
   return v;
 }
 
-function mixAudio(...streams){
+// ── Devices ───────────────────────────────────────────────────────────
+function fillDevices(select, devices, fallbackLabel, wanted){
+  const prev = wanted !== undefined ? wanted : select.value;
+  select.innerHTML = '';
+  select.add(new Option(fallbackLabel === 'mic' ? 'Default microphone' : 'Default camera', ''));
+  let n = 0;
+  devices.forEach(d => {
+    // "default"/"communications" are virtual aliases Chrome adds on Windows
+    if(d.deviceId === 'default' || d.deviceId === 'communications') return;
+    n++;
+    select.add(new Option(d.label || `${fallbackLabel === 'mic' ? 'Microphone' : 'Camera'} ${n}`, d.deviceId));
+  });
+  if([...select.options].some(o => o.value === prev)) select.value = prev;
+}
+async function refreshDevices(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  try{
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    fillDevices(micSelect, devs.filter(d => d.kind === 'audioinput'), 'mic', micSelect.value || saved.micDevice || '');
+    fillDevices(camSelect, devs.filter(d => d.kind === 'videoinput'), 'cam', camSelect.value || saved.camDevice || '');
+  }catch(_){ /* leave defaults */ }
+}
+micSelect.addEventListener('change', () => { saved.micDevice = micSelect.value; persist(); });
+camSelect.addEventListener('change', () => { saved.camDevice = camSelect.value; persist(); });
+if(navigator.mediaDevices && navigator.mediaDevices.addEventListener){
+  navigator.mediaDevices.addEventListener('devicechange', refreshDevices);
+}
+refreshDevices();
+
+function micConstraints(){
+  const c = { noiseSuppression: nsChk.checked, echoCancellation: ecChk.checked, autoGainControl: agChk.checked };
+  if(micSelect.value) c.deviceId = { exact: micSelect.value };
+  return c;
+}
+function camConstraints(){
+  const c = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
+  if(camSelect.value) c.deviceId = { exact: camSelect.value };
+  return c;
+}
+function withoutDeviceIds(constraints){
+  const out = {};
+  for(const k of Object.keys(constraints)){
+    const v = constraints[k];
+    if(v && typeof v === 'object'){ const { deviceId, ...rest } = v; out[k] = rest; } else out[k] = v;
+  }
+  return out;
+}
+// getUserMedia that falls back to the default device if the remembered one is gone.
+async function gum(constraints){
+  try{
+    const s = await navigator.mediaDevices.getUserMedia(constraints);
+    refreshDevices(); // labels become available once permission is granted
+    return s;
+  }catch(err){
+    const usedId = Object.values(constraints).some(v => v && typeof v === 'object' && v.deviceId);
+    if(usedId && (err.name === 'OverconstrainedError' || err.name === 'NotFoundError')){
+      toast('The selected device was not found — using the default one.');
+      return navigator.mediaDevices.getUserMedia(withoutDeviceIds(constraints));
+    }
+    throw err;
+  }
+}
+
+// ── Audio mixer (always through AudioContext — never raw tracks to MediaRecorder) ──
+function buildAudioGraph({ mic, system }){
+  const micTracks = mic ? mic.getAudioTracks() : [];
+  const sysTracks = system ? system.getAudioTracks() : [];
+  if(!micTracks.length && !sysTracks.length) return null;
+
   audioCtx = new AudioContext();
+  if(audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   const dest = audioCtx.createMediaStreamDestination();
 
-  // Analyser for audio meter — NOT connected to destination (no speaker playback)
+  // Analyser for the meter is a dead end — it is NOT connected to the speakers.
   analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 256;
+  analyser.fftSize = 1024;
+  const bus = audioCtx.createGain();
+  bus.connect(dest);
+  bus.connect(analyser);
 
-  streams.forEach(s => {
-    if(s?.getAudioTracks().length){
-      const src = audioCtx.createMediaStreamSource(s);
-      src.connect(dest);
-      src.connect(analyser); // meter only, no output to speakers
-    }
-  });
+  if(micTracks.length){
+    micGainNode = audioCtx.createGain();
+    micGainNode.gain.value = micOn ? micVol() : 0;
+    audioCtx.createMediaStreamSource(new MediaStream(micTracks)).connect(micGainNode);
+    micGainNode.connect(bus);
+  }
+  if(sysTracks.length){
+    audioCtx.createMediaStreamSource(new MediaStream(sysTracks)).connect(bus);
+  }
   return dest.stream.getAudioTracks()[0] || null;
 }
 
+let clipUntil = 0;
 function startMeter(){
   if(!analyser) return;
-  const data = new Uint8Array(analyser.frequencyBinCount);
+  const buf = new Float32Array(analyser.fftSize);
   meterWrap.style.display = 'flex';
   const tick = () => {
-    analyser.getByteFrequencyData(data);
-    const avg = data.reduce((a,b)=>a+b,0)/data.length;
-    meterBar.style.width = Math.min(100, avg * 2) + '%';
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0, peak = 0;
+    for(let i = 0; i < buf.length; i++){ const v = buf[i]; sum += v*v; const a = Math.abs(v); if(a > peak) peak = a; }
+    const rms = Math.sqrt(sum / buf.length);
+    // Map -60 dB … 0 dB onto the bar (a more honest scale than averaging FFT bins).
+    const db = rms > 0 ? 20 * Math.log10(rms) : -100;
+    meterBar.style.width = Math.max(0, Math.min(1, (db + 60) / 60)) * 100 + '%';
+    const now = performance.now();
+    if(peak >= 0.99) clipUntil = now + 1200;
+    meterEl.classList.toggle('clip', now < clipUntil);
     meterRaf = requestAnimationFrame(tick);
   };
   meterRaf = requestAnimationFrame(tick);
@@ -467,9 +893,83 @@ function stopMeter(){
   meterRaf = null;
   meterWrap.style.display = 'none';
   meterBar.style.width = '0%';
+  meterEl.classList.remove('clip');
 }
 
-// ── Canvas draw loop (requestVideoFrameCallback — background-tab safe) ─
+// ── Annotations (persistent strokes + fading laser) ───────────────────
+// Everything is stored as data and re-drawn on every composited frame. (Painting
+// straight onto the canvas would be wiped by the next video frame.)
+let drawMode = null;                 // 'laser' | 'pen' | 'hl' | 'arrow' | 'rect' | null
+let drawColor = '#ff6584';
+const annos = [];
+let curAnno = null, laserPos = null;
+const laserTrail = [];
+const LASER_FADE_MS = 700;
+
+const strokeW = () => Math.max(3, Math.round(4 * composite.width / 1280));
+
+function canvasPoint(e){
+  const r = composite.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * composite.width / r.width, y: (e.clientY - r.top) * composite.height / r.height };
+}
+function strokePath(c, pts){
+  if(!pts.length) return;
+  c.beginPath();
+  c.moveTo(pts[0].x, pts[0].y);
+  if(pts.length === 1) c.lineTo(pts[0].x + 0.01, pts[0].y);
+  for(let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y);
+  c.stroke();
+}
+function paintAnno(c, a){
+  c.save();
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = a.color; c.fillStyle = a.color;
+  if(a.tool === 'pen'){
+    c.lineWidth = a.w; strokePath(c, a.pts);
+  } else if(a.tool === 'hl'){
+    c.globalAlpha = 0.35; c.lineWidth = a.w * 4; c.lineCap = 'butt'; strokePath(c, a.pts);
+  } else if(a.tool === 'rect'){
+    c.lineWidth = a.w;
+    c.strokeRect(Math.min(a.x1, a.x2), Math.min(a.y1, a.y2), Math.abs(a.x2 - a.x1), Math.abs(a.y2 - a.y1));
+  } else if(a.tool === 'arrow'){
+    const dx = a.x2 - a.x1, dy = a.y2 - a.y1, len = Math.hypot(dx, dy);
+    if(len > 2){
+      const ang = Math.atan2(dy, dx), head = Math.min(len * 0.5, a.w * 5);
+      c.lineWidth = a.w;
+      c.beginPath(); c.moveTo(a.x1, a.y1); c.lineTo(a.x2, a.y2); c.stroke();
+      c.beginPath();
+      c.moveTo(a.x2, a.y2);
+      c.lineTo(a.x2 - head * Math.cos(ang - 0.45), a.y2 - head * Math.sin(ang - 0.45));
+      c.lineTo(a.x2 - head * Math.cos(ang + 0.45), a.y2 - head * Math.sin(ang + 0.45));
+      c.closePath(); c.fill();
+    }
+  }
+  c.restore();
+}
+function paintLaser(c){
+  const now = performance.now();
+  while(laserTrail.length && now - laserTrail[0].t > LASER_FADE_MS) laserTrail.shift();
+  c.save();
+  c.lineCap = 'round'; c.strokeStyle = drawColor; c.fillStyle = drawColor;
+  for(let i = 1; i < laserTrail.length; i++){
+    const age = (now - laserTrail[i].t) / LASER_FADE_MS;
+    c.globalAlpha = Math.max(0, 1 - age) * 0.8;
+    c.lineWidth = strokeW() * 2 * (1 - age * 0.6);
+    c.beginPath(); c.moveTo(laserTrail[i-1].x, laserTrail[i-1].y); c.lineTo(laserTrail[i].x, laserTrail[i].y); c.stroke();
+  }
+  if(laserPos){
+    const r = strokeW() * 3;
+    const g = c.createRadialGradient(laserPos.x, laserPos.y, 0, laserPos.x, laserPos.y, r * 2.2);
+    g.addColorStop(0, drawColor); g.addColorStop(1, 'rgba(255,255,255,0)');
+    c.globalAlpha = 0.9; c.fillStyle = g;
+    c.beginPath(); c.arc(laserPos.x, laserPos.y, r * 2.2, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = 1; c.fillStyle = '#fff';
+    c.beginPath(); c.arc(laserPos.x, laserPos.y, r * 0.5, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
+}
+
+// ── Canvas compositor (requestVideoFrameCallback — background-tab safe) ─
 function camRect(cw, ch){
   const pct = parseInt($('camSizeRange').value) / 100;
   const w = Math.round(composite.width * pct);
@@ -484,212 +984,343 @@ function camRect(cw, ch){
 function drawCamOverlay(camVid){
   const {x, y, w, h} = camRect(camVid.videoWidth, camVid.videoHeight);
   const shape = $('camShapeSelect').value;
+  const outline = () => {
+    ctx.beginPath();
+    if(shape === 'round') ctx.arc(x + w/2, y + h/2, Math.min(w,h)/2, 0, Math.PI*2);
+    else ctx.roundRect(x, y, w, h, 10);
+  };
 
   ctx.save();
-  ctx.beginPath();
-  if(shape === 'round'){
-    const r = Math.min(w,h)/2;
-    ctx.arc(x + w/2, y + h/2, r, 0, Math.PI*2);
-  } else {
-    ctx.roundRect(x, y, w, h, 10);
-  }
+  outline();
   ctx.clip();
-  ctx.drawImage(camVid, x, y, w, h);
+  if(mirrorChk.checked){
+    ctx.translate(x + w, y); ctx.scale(-1, 1);
+    ctx.drawImage(camVid, 0, 0, w, h);
+  } else {
+    ctx.drawImage(camVid, x, y, w, h);
+  }
   ctx.restore();
 
-  // border
   ctx.strokeStyle = 'rgba(255,255,255,0.9)';
   ctx.lineWidth = 3;
-  ctx.beginPath();
-  if(shape === 'round'){
-    const r = Math.min(w,h)/2;
-    ctx.arc(x + w/2, y + h/2, r, 0, Math.PI*2);
-  } else {
-    ctx.roundRect(x, y, w, h, 10);
-  }
+  outline();
   ctx.stroke();
+}
+
+function renderFrame(force = false){
+  if(!lastScreenVid) return;
+  const now = performance.now();
+  // Screen and camera both call this; skip the redundant one when they fire together.
+  if(!force && now - lastRender < minFrameMs) return;
+  lastRender = now;
+  ctx.drawImage(lastScreenVid, 0, 0, composite.width, composite.height);
+  for(const a of annos) paintAnno(ctx, a);
+  if(curAnno) paintAnno(ctx, curAnno);
+  paintLaser(ctx);
+  if(lastCamVid) drawCamOverlay(lastCamVid);
+}
+
+// Repaint on demand (drawing, laser fade) — needed because a static screen would
+// otherwise not deliver new video frames to redraw on. Only runs while the user interacts.
+let renderQueued = false;
+function scheduleRender(){
+  if(renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    renderFrame(true);
+    if(laserTrail.length) scheduleRender(); // keep animating the fade
+  });
 }
 
 function startDraw(screenVid, camVid){
-  drawVid = screenVid;
-  const frame = () => {
-    ctx.drawImage(screenVid, 0, 0, composite.width, composite.height);
-    drawCamOverlay(camVid);
-    vfcId = screenVid.requestVideoFrameCallback(frame);
+  lastScreenVid = screenVid; lastCamVid = camVid; lastRender = 0;
+  const hook = vid => {
+    const h = { vid, id: null };
+    const cb = () => { renderFrame(); h.id = vid.requestVideoFrameCallback(cb); };
+    h.id = vid.requestVideoFrameCallback(cb);
+    vfcHandles.push(h);
   };
-  ctx.drawImage(screenVid, 0, 0, composite.width, composite.height);
-  vfcId = screenVid.requestVideoFrameCallback(frame);
+  renderFrame(true);
+  hook(screenVid);
+  // The camera drives the loop too, so the face overlay stays smooth even when the
+  // screen is static and delivers few frames.
+  if(camVid) hook(camVid);
+}
+function stopDraw(){
+  vfcHandles.forEach(h => { try { h.vid.cancelVideoFrameCallback(h.id); } catch(_) {} });
+  vfcHandles = [];
+  lastScreenVid = lastCamVid = null;
 }
 
-// ── Screenshot ────────────────────────────────────────────────────────
-function takeScreenshot(){
-  const src = composite.style.display !== 'none' ? composite : null;
-  const img = document.createElement('canvas');
-  if(src){
-    img.width = src.width; img.height = src.height;
-    img.getContext('2d').drawImage(src, 0, 0);
-  } else {
-    img.width = mainVideo.videoWidth; img.height = mainVideo.videoHeight;
-    img.getContext('2d').drawImage(mainVideo, 0, 0);
-  }
-  img.toBlob(blob => {
-    const a = Object.assign(document.createElement('a'),{
-      href: URL.createObjectURL(blob),
-      download: 'screenshot-'+Date.now()+'.png'
-    });
-    a.click(); URL.revokeObjectURL(a.href);
-  },'image/png');
-}
-
-// ── Drawing / annotation on composite ────────────────────────────────
-function enableDrawing(){
-  composite.style.cursor = 'crosshair';
-  drawBar.style.display  = 'flex';
-}
+// ── Draw tools UI ─────────────────────────────────────────────────────
+function enableDrawing(){ composite.style.cursor = 'crosshair'; drawBar.style.display = 'flex'; }
 function disableDrawing(){
-  composite.style.cursor = '';
-  drawBar.style.display  = 'none';
-  drawMode = null;
+  composite.style.cursor = ''; drawBar.style.display = 'none';
+  setTool(null);
 }
-
-composite.addEventListener('mousedown', e=>{
-  if(!drawMode) return;
-  isDrawing = true;
-  const r = composite.getBoundingClientRect();
-  const sx = composite.width  / r.width;
-  const sy = composite.height / r.height;
-  drawPx = (e.clientX - r.left) * sx;
-  drawPy = (e.clientY - r.top)  * sy;
-  if(drawMode === 'laser'){
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = drawColor;
-    ctx.beginPath();
-    ctx.arc(drawPx, drawPy, 10, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-  }
+function setTool(t){
+  drawMode = t;
+  document.querySelectorAll('.draw-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+  if(t !== 'laser'){ laserPos = null; }
+  composite.style.cursor = t ? 'crosshair' : '';
+}
+document.querySelectorAll('.draw-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => setTool(drawMode === btn.dataset.tool ? null : btn.dataset.tool));
 });
-composite.addEventListener('mousemove', e=>{
-  if(!isDrawing || drawMode !== 'pen') return;
-  const r  = composite.getBoundingClientRect();
-  const sx = composite.width  / r.width;
-  const sy = composite.height / r.height;
-  const nx = (e.clientX - r.left) * sx;
-  const ny = (e.clientY - r.top)  * sy;
-  ctx.save();
-  ctx.strokeStyle = drawColor;
-  ctx.lineWidth   = 4;
-  ctx.lineCap     = 'round';
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.beginPath();
-  ctx.moveTo(drawPx, drawPy);
-  ctx.lineTo(nx, ny);
-  ctx.stroke();
-  ctx.restore();
-  drawPx = nx; drawPy = ny;
-});
-composite.addEventListener('mouseup',   ()=>{ isDrawing = false; });
-composite.addEventListener('mouseleave',()=>{ isDrawing = false; });
-
-$('laserBtn').addEventListener('click', ()=>{
-  drawMode = drawMode==='laser' ? null : 'laser';
-  $('laserBtn').classList.toggle('active', drawMode==='laser');
-  $('penBtn').classList.remove('active');
-});
-$('penBtn').addEventListener('click', ()=>{
-  drawMode = drawMode==='pen' ? null : 'pen';
-  $('penBtn').classList.toggle('active', drawMode==='pen');
-  $('laserBtn').classList.remove('active');
-});
-$('clearBtn').addEventListener('click', ()=>{
-  // Clear will be overwritten on next video frame — just triggers a redraw
-});
-colorDot.addEventListener('click', ()=> colorInput.click());
-colorInput.addEventListener('input', e=>{
+function undoAnno(){ annos.pop(); scheduleRender(); }
+$('undoBtn').addEventListener('click', undoAnno);
+$('clearBtn').addEventListener('click', () => { annos.length = 0; curAnno = null; scheduleRender(); });
+colorDot.addEventListener('click', () => colorInput.click());
+colorInput.addEventListener('input', e => {
   drawColor = e.target.value;
   colorDot.style.background = drawColor;
 });
 
+composite.addEventListener('pointerdown', e => {
+  if(!drawMode || drawMode === 'laser') return;
+  composite.setPointerCapture(e.pointerId);
+  const p = canvasPoint(e);
+  curAnno = { tool: drawMode, color: drawColor, w: strokeW(), pts: [p], x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+  scheduleRender();
+});
+composite.addEventListener('pointermove', e => {
+  if(drawMode === 'laser'){
+    const p = canvasPoint(e);
+    laserPos = p;
+    laserTrail.push({ x: p.x, y: p.y, t: performance.now() });
+    if(laserTrail.length > 80) laserTrail.shift();
+    scheduleRender();
+    return;
+  }
+  if(!curAnno) return;
+  const p = canvasPoint(e);
+  if(curAnno.tool === 'pen' || curAnno.tool === 'hl') curAnno.pts.push(p);
+  else { curAnno.x2 = p.x; curAnno.y2 = p.y; }
+  scheduleRender();
+});
+function endStroke(){
+  if(!curAnno) return;
+  annos.push(curAnno);
+  curAnno = null;
+  scheduleRender();
+}
+composite.addEventListener('pointerup', endStroke);
+composite.addEventListener('pointercancel', endStroke);
+composite.addEventListener('pointerleave', () => { if(drawMode === 'laser'){ laserPos = null; scheduleRender(); } });
+
+// ── Screenshot ────────────────────────────────────────────────────────
+async function takeScreenshot(){
+  const useComposite = composite.style.display !== 'none';
+  const src = useComposite ? composite : mainVideo;
+  const w = useComposite ? composite.width : mainVideo.videoWidth;
+  const h = useComposite ? composite.height : mainVideo.videoHeight;
+  if(!w || !h) return;
+  const img = document.createElement('canvas');
+  img.width = w; img.height = h;
+  img.getContext('2d').drawImage(src, 0, 0, w, h);
+  const blob = await new Promise(r => img.toBlob(r, 'image/png'));
+  if(!blob) return;
+  const name = `Screenshot ${stamp()}.png`;
+
+  if(IS_DESKTOP){
+    try{
+      const res = await api.saveImage(await blob.arrayBuffer(), name, true);
+      toast(res.copied ? 'Screenshot saved and copied to clipboard' : 'Screenshot saved', 'Show in folder', () => api.reveal(res.path));
+      return;
+    }catch(err){ toast('Could not save screenshot: ' + err.message); return; }
+  }
+  let copied = false;
+  try{
+    if(navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      copied = true;
+    }
+  }catch(_){ /* clipboard blocked — the download below still works */ }
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(copied ? 'Screenshot downloaded and copied to clipboard' : 'Screenshot downloaded');
+}
+
+// ── Source picker (desktop app) ───────────────────────────────────────
+let pickerKind = 'screen', pickerSources = [], pickerSelected = null, pickerResolve = null;
+
+function finishPicker(result){
+  sourceModal.style.display = 'none';
+  const r = pickerResolve; pickerResolve = null;
+  if(r) r(result);
+}
+function renderPicker(){
+  const grid = $('source-grid');
+  grid.innerHTML = '';
+  document.querySelectorAll('#source-modal .tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.kind === pickerKind);
+    const n = pickerSources.filter(s => s.kind === t.dataset.kind).length;
+    t.textContent = (t.dataset.kind === 'screen' ? 'Screens' : 'Windows') + ` (${n})`;
+  });
+  const list = pickerSources.filter(s => s.kind === pickerKind);
+  if(!list.length){
+    const d = document.createElement('div'); d.className = 'src-empty'; d.textContent = 'Nothing to show here.';
+    grid.appendChild(d); return;
+  }
+  list.forEach(s => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'src-card' + (pickerSelected && pickerSelected.id === s.id ? ' sel' : '');
+    if(s.thumbnail){ const im = document.createElement('img'); im.className = 'thumb'; im.src = s.thumbnail; im.alt = ''; card.appendChild(im); }
+    const nm = document.createElement('div'); nm.className = 'nm';
+    if(s.appIcon){ const ic = document.createElement('img'); ic.src = s.appIcon; ic.alt = ''; nm.appendChild(ic); }
+    const label = document.createElement('span'); label.textContent = s.name; label.title = s.name; // textContent: window titles are untrusted
+    nm.appendChild(label); card.appendChild(nm);
+    card.addEventListener('click', () => { pickerSelected = s; $('srcOk').disabled = false; renderPicker(); });
+    card.addEventListener('dblclick', () => finishPicker(s));
+    grid.appendChild(card);
+  });
+}
+async function pickSource(){
+  pickerSelected = null; pickerKind = 'screen'; $('srcOk').disabled = true;
+  $('source-grid').innerHTML = '<div class="src-empty">Loading sources…</div>';
+  sourceModal.style.display = 'flex';
+  const done = new Promise(res => { pickerResolve = res; });
+  try{ pickerSources = await api.listSources(); }catch(_){ pickerSources = []; }
+  if(!pickerResolve) return done; // cancelled while loading
+  const firstScreen = pickerSources.find(s => s.kind === 'screen');
+  if(firstScreen){ pickerSelected = firstScreen; $('srcOk').disabled = false; }
+  renderPicker();
+  return done;
+}
+document.querySelectorAll('#source-modal .tab').forEach(t => t.addEventListener('click', () => { pickerKind = t.dataset.kind; renderPicker(); }));
+$('srcCancel').addEventListener('click', () => finishPicker(null));
+$('srcOk').addEventListener('click', () => finishPicker(pickerSelected));
+
 // ── Main recording flow ───────────────────────────────────────────────
+function pickMime(){
+  const list = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  return list.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+}
+
+function resetSessionState(){
+  chunksWebm = []; blobWebm = null; recWebm = null;
+  screenStream = camStream = micStream = audioCtx = null;
+  micGainNode = analyser = null;
+  recId = null; diskOk = false; diskQueue = Promise.resolve();
+  annos.length = 0; curAnno = null; laserTrail.length = 0; laserPos = null;
+  cancelStart = false;
+}
+
 async function start(){
-  chunksWebm = [];
-  blobWebm = null; stopCount = 0;
-  recWebm = null;
-  screenStream = camStream = audioCtx = null;
-  drawVid = null; vfcId = null;
+  if(recState !== 'idle' || previewModal.style.display === 'flex') return;
+  recState = 'starting';
+  resetSessionState();
 
   try{
-    let videoTrack, audioTrack;
     const m = getMode();
-    const bitrate = parseInt($('qualitySelect').value);
+    const fps = Number(fpsSelect.value) || 30;
+    const bitrate = parseInt(qualitySelect.value);
+    const wantSysAudio = sysAudioChk.checked && m !== 'camera' && !sysAudioChk.disabled;
+    const useCanvas = m === 'both' || (m === 'screen' && drawInScreenChk.checked);
+    autoStopSec = parseInt(autoStopSelect.value) || 0;
+    minFrameMs = (1000 / fps) * 0.8;
+    let videoTrack, sysStream = null;
 
-    if(m === 'screen'){
-      setStatus('Waiting for screen share…');
-      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
-      let mic = null;
-      if(micOn){ try{ mic = await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }catch(_){} }
-      videoTrack = screenStream.getVideoTracks()[0];
-      audioTrack = mic ? mixAudio(mic) : null;
-      mainVideo.srcObject = screenStream;
-      mainVideo.style.display = 'block';
-      composite.style.display = 'none';
-      viewLabel.textContent = 'Screen';
-      viewEl.style.display = 'block';
-      disableDrawing();
-
-    } else if(m === 'camera'){
-      setStatus('Waiting for camera…');
-      camStream = await navigator.mediaDevices.getUserMedia({video:true, audio:micOn});
-      videoTrack = camStream.getVideoTracks()[0];
-      audioTrack = micOn ? mixAudio(camStream) : null;
-      mainVideo.srcObject = camStream;
-      mainVideo.style.display = 'block';
-      composite.style.display = 'none';
-      viewLabel.textContent = 'Camera';
-      viewEl.style.display = 'block';
-      disableDrawing();
-
-    } else {
-      setStatus('Step 1: Pick a Chrome Tab to record…');
-      // No system audio from screen — mic comes exclusively from camStream
-      screenStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
-      setStatus('Step 2: Allow camera & mic…');
-      camStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-      setStatus('Building composite…');
-
-      const [sv, cv] = await Promise.all([
-        makeOffscreenVideo(screenStream),
-        makeOffscreenVideo(camStream),
-      ]);
-      composite.width  = sv.videoWidth;
-      composite.height = sv.videoHeight;
-      startDraw(sv, cv);
-      await new Promise(r=>setTimeout(r,300));
-
-      composite.style.display = 'block';
-      mainVideo.style.display = 'none';
-      viewLabel.textContent = 'Screen + Camera';
-      viewEl.style.display = 'block';
-      enableDrawing();
-
-      const canvasStream = composite.captureStream(30);
-      videoTrack = canvasStream.getVideoTracks()[0];
-      audioTrack = micOn ? mixAudio(camStream) : null;
+    if(m !== 'camera'){
+      if(IS_DESKTOP){
+        setStatus('Choose what to record…');
+        const picked = await pickSource();
+        if(!picked) throw abortError();
+        await api.selectSource(picked.id, wantSysAudio);
+      }
+      setStatus(m === 'both' ? 'Step 1: Pick what to record…' : 'Waiting for screen share…');
+      screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: fps } }, audio: wantSysAudio });
+      if(screenStream.getAudioTracks().length) sysStream = screenStream;
+      else if(wantSysAudio) toast(IS_DESKTOP
+        ? 'System audio is not available here — recording without it.'
+        : 'No tab audio was shared. Next time tick “Also share tab audio” in the share dialog.');
     }
 
+    if(m === 'camera'){
+      setStatus('Waiting for camera…');
+      camStream = await gum({ video: camConstraints(), audio: micOn ? micConstraints() : false });
+      videoTrack = camStream.getVideoTracks()[0];
+      mainVideo.srcObject = camStream;
+      mainVideo.style.display = 'block'; composite.style.display = 'none';
+      viewLabel.textContent = 'Camera'; viewEl.style.display = 'block';
+      disableDrawing();
+    } else {
+      if(m === 'both'){
+        setStatus('Step 2: Allow camera & mic…');
+        camStream = await gum({ video: camConstraints(), audio: micOn ? micConstraints() : false });
+      } else if(micOn){
+        // Screen-only: the mic is grabbed separately and mixed in
+        try{ micStream = await gum({ audio: micConstraints(), video: false }); }
+        catch(_){ toast('Microphone unavailable — recording without your voice.'); }
+      }
+
+      if(useCanvas){
+        setStatus('Building composite…');
+        const [sv, cv] = await Promise.all([
+          makeOffscreenVideo(screenStream),
+          camStream ? makeOffscreenVideo(camStream) : Promise.resolve(null),
+        ]);
+        composite.width = sv.videoWidth;
+        composite.height = sv.videoHeight;
+        startDraw(sv, cv);
+        await sleep(300); // let the first real frame land before captureStream
+        composite.style.display = 'block'; mainVideo.style.display = 'none';
+        viewLabel.textContent = m === 'both' ? 'Screen + Camera' : 'Screen + draw tools';
+        viewEl.style.display = 'block';
+        enableDrawing();
+        videoTrack = composite.captureStream(fps).getVideoTracks()[0];
+      } else {
+        videoTrack = screenStream.getVideoTracks()[0];
+        mainVideo.srcObject = screenStream;
+        mainVideo.style.display = 'block'; composite.style.display = 'none';
+        viewLabel.textContent = 'Screen'; viewEl.style.display = 'block';
+        disableDrawing();
+      }
+    }
+
+    // One mixed audio track: voice (+ system/tab audio if shared)
+    const micSource = micStream || (micOn && camStream && camStream.getAudioTracks().length ? camStream : null);
+    const audioTrack = buildAudioGraph({ mic: micSource, system: sysStream });
     const recStream = new MediaStream([videoTrack, audioTrack].filter(Boolean));
 
-    await runCountdown(3);
-
-    recWebm = new MediaRecorder(recStream, {
-      mimeType: 'video/webm;codecs=vp8,opus',
-      videoBitsPerSecond: bitrate,
+    // If the shared screen/window goes away (user hits "Stop sharing", camera unplugged…), stop cleanly.
+    [screenStream, camStream].forEach(s => {
+      const t = s && s.getVideoTracks()[0];
+      if(t) t.addEventListener('ended', () => {
+        if(recState === 'recording' || recState === 'paused'){ toast('The shared source ended — recording stopped.'); stop(); }
+      });
     });
-    recWebm.ondataavailable = e => { if(e.data?.size > 0) chunksWebm.push(e.data); };
-    recWebm.onstop = onStop;
-    recWebm.start(100);
 
+    const cd = Number(countdownSelect.value) || 0;
+    if(cd > 0) await runCountdown(cd);
+    if(cancelStart) throw abortError();
+
+    if(IS_DESKTOP){
+      try{ recId = (await api.recStart()).id; diskOk = !!recId; }catch(_){ recId = null; diskOk = false; }
+    }
+
+    const mime = pickMime();
+    const recOpts = { videoBitsPerSecond: bitrate, audioBitsPerSecond: 128000 };
+    if(mime) recOpts.mimeType = mime;
+    recWebm = new MediaRecorder(recStream, recOpts);
+    recWebm.ondataavailable = e => {
+      if(!e.data || !e.data.size) return;
+      chunksWebm.push(e.data);
+      if(IS_DESKTOP && recId && diskOk){
+        const id = recId, blob = e.data;
+        diskQueue = diskQueue
+          .then(async () => { const r = await api.recChunk(id, await blob.arrayBuffer()); if(!r || !r.ok) diskOk = false; })
+          .catch(() => { diskOk = false; });
+      }
+    };
+    recWebm.onerror = () => { toast('Recording error — stopping.'); stop(); };
+    recWebm.onstop = onStop;
+    recWebm.start(1000);
+
+    recState = 'recording';
     startTimer();
     startMeter();
     setStatus('Recording… (switch to your tab and work normally)');
@@ -700,17 +1331,26 @@ async function start(){
     screenshotBtn.disabled = false;
     document.querySelectorAll('input[name="mode"]').forEach(r => r.disabled = true);
 
+    if(IS_DESKTOP){
+      api.setRecordingState(true).catch(() => {});
+      // Keep the recorder out of the recording — unless the user wants to draw on its preview.
+      if(minimizeChk.checked && m !== 'camera' && !(m === 'screen' && drawInScreenChk.checked)){
+        setTimeout(() => { if(recState === 'recording') api.minimizeWindow().catch(() => {}); }, 250);
+      }
+    }
   }catch(err){
-    setStatus('Error: ' + err.message);
+    if(recId && IS_DESKTOP){ api.recDiscard(recId).catch(() => {}); recId = null; }
     cleanup();
+    setStatus(friendly(err));
   }
 }
 
 function pause(){
-  if(recWebm?.state === 'recording'){
+  if(recWebm && recWebm.state === 'recording'){
     recWebm.pause();
+    recState = 'paused';
+    pauseStartedPerf = performance.now();
     setStatus('Paused');
-    clearInterval(timerIntvl);
     pauseBtn.disabled  = true;
     resumeBtn.disabled = false;
     recDot.style.animationPlayState = 'paused';
@@ -718,10 +1358,11 @@ function pause(){
 }
 
 function resume(){
-  if(recWebm?.state === 'paused'){
+  if(recWebm && recWebm.state === 'paused'){
     recWebm.resume();
+    recState = 'recording';
+    pausedAccum += performance.now() - pauseStartedPerf; pauseStartedPerf = 0;
     setStatus('Recording…');
-    timerIntvl = setInterval(()=>{ elapsedSec++; timerEl.textContent=fmtTime(elapsedSec); }, 1000);
     resumeBtn.disabled = true;
     pauseBtn.disabled  = false;
     recDot.style.animationPlayState = 'running';
@@ -729,54 +1370,139 @@ function resume(){
 }
 
 function stop(){
-  recWebm?.stop();
+  if(recWebm && recWebm.state !== 'inactive'){
+    recState = 'stopping';
+    recWebm.stop();
+  }
 }
 
-function fmtSize(bytes){ return (bytes/1024/1024).toFixed(1)+' MB'; }
-
-function onStop(){
+async function onStop(){
+  recordedSeconds = elapsedMs() / 1000; // measured before the timer is reset
   stopTimer(); stopMeter();
+  blobWebm = new Blob(chunksWebm, { type: 'video/webm' });
+  chunksWebm = [];
 
-  blobWebm = new Blob(chunksWebm, {type:'video/webm'});
+  if(IS_DESKTOP && recId){
+    try{
+      await diskQueue; // every chunk is on disk before we say "finished"
+      const r = await api.recFinish(recId);
+      if(!r || !r.ok) diskOk = false;
+    }catch(_){ diskOk = false; }
+  }
 
-  $('fmtWebm').style.display = 'inline';
-  $('fmtMp4').style.display  = 'none';
-  $('recSize').textContent   = fmtSize(blobWebm.size);
-
-  // MP4 export is always available (via ffmpeg in the desktop app); only
-  // disabled if this page somehow isn't running inside the Electron shell.
-  const mp4Available = !!window.electronAPI;
-  dlMp4Btn.disabled = !mp4Available;
-  dlMp4Btn.title    = mp4Available ? '' : 'MP4 export requires the desktop app';
-  $('mp4Unavail').style.display = mp4Available ? 'none' : 'block';
-
-  previewVid.src = URL.createObjectURL(blobWebm);
-  previewModal.style.display = 'flex';
+  if(!blobWebm.size){
+    if(recId && IS_DESKTOP){ api.recDiscard(recId).catch(() => {}); recId = null; }
+    cleanup();
+    toast('Nothing was recorded.');
+    return;
+  }
+  showPreview({ sizeBytes: blobWebm.size });
   cleanup(false);
 }
 
+// Releases every resource a recording can hold. Anything new that holds a stream,
+// timer or context must be released here.
 function cleanup(resetUI = true){
-  if(vfcId !== null && drawVid){ drawVid.cancelVideoFrameCallback(vfcId); }
-  vfcId = null; drawVid = null;
+  stopDraw();
   stopTimer(); stopMeter();
-  if(audioCtx){ audioCtx.close(); audioCtx = null; }
-  [screenStream, camStream].forEach(s => s?.getTracks().forEach(t=>t.stop()));
-  screenStream = camStream = null;
+  if(audioCtx){ audioCtx.close().catch(() => {}); audioCtx = null; }
+  micGainNode = analyser = null;
+  [screenStream, camStream, micStream].forEach(s => s && s.getTracks().forEach(t => t.stop()));
+  screenStream = camStream = micStream = null;
   mainVideo.srcObject = null;
+  countdownEl.style.display = 'none';
   if(resetUI){
     viewEl.style.display = 'none';
     disableDrawing();
   }
+  recState = 'idle';
+  cancelStart = false;
   startBtn.disabled   = false;
   pauseBtn.disabled   = true;
   resumeBtn.disabled  = true;
   stopBtn.disabled    = true;
   screenshotBtn.disabled = true;
+  recDot.style.animationPlayState = 'running';
   document.querySelectorAll('input[name="mode"]').forEach(r => r.disabled = false);
   setStatus('Ready');
+  if(IS_DESKTOP){
+    api.setRecordingState(false).catch(() => {});
+    api.restoreWindow().catch(() => {});
+  }
 }
 
-// ── Save-As helper (uses native file picker; falls back to <a download>) ─
+// ── Preview modal ─────────────────────────────────────────────────────
+// MediaRecorder WebM has no duration, so the scrubber would show "Infinity".
+// Seeking far past the end forces the browser to compute the real length.
+function fixPreviewDuration(){
+  previewVid.addEventListener('loadedmetadata', function once(){
+    previewVid.removeEventListener('loadedmetadata', once);
+    if(previewVid.duration === Infinity){
+      previewVid.currentTime = 1e101;
+      previewVid.addEventListener('timeupdate', function back(){
+        previewVid.removeEventListener('timeupdate', back);
+        previewVid.currentTime = 0;
+      });
+    }
+  });
+}
+
+function getTrim(){
+  const s = parseFloat(trimStart.value), e = parseFloat(trimEnd.value);
+  const start = Number.isFinite(s) && s > 0 ? s : 0;
+  let end = Number.isFinite(e) && e > start ? e : null;
+  if(end !== null && recordedSeconds && end >= recordedSeconds - 0.05) end = null; // = "to the end"
+  return { start, end };
+}
+function updateTrimInfo(){
+  const t = getTrim();
+  const len = t.end !== null ? t.end - t.start : (recordedSeconds ? recordedSeconds - t.start : null);
+  trimInfo.textContent = len !== null && len > 0 ? `Clip length: ${len.toFixed(1)}s` : '';
+}
+function resetTrim(){
+  trimStart.value = '0';
+  trimEnd.value = recordedSeconds ? recordedSeconds.toFixed(1) : '';
+  updateTrimInfo();
+}
+[trimStart, trimEnd].forEach(el => el.addEventListener('input', updateTrimInfo));
+$('setStartBtn').addEventListener('click', () => { trimStart.value = previewVid.currentTime.toFixed(1); updateTrimInfo(); });
+$('setEndBtn').addEventListener('click',   () => { trimEnd.value   = previewVid.currentTime.toFixed(1); updateTrimInfo(); });
+$('resetTrimBtn').addEventListener('click', resetTrim);
+
+function showPreview({ sizeBytes }){
+  hasSaved = false;
+  $('recSize').textContent = fmtSize(sizeBytes);
+  $('recDur').textContent  = recordedSeconds ? '· ' + fmtTime(Math.round(recordedSeconds)) : '';
+  resetTrim();
+  discardBtn.textContent = '🗑 Discard';
+  dlMp4Btn.disabled = dlGifBtn.disabled = !IS_DESKTOP;
+  dlMp4Btn.title = dlGifBtn.title = IS_DESKTOP ? '' : 'Requires the desktop app';
+  $('mp4Unavail').style.display = IS_DESKTOP ? 'none' : 'block';
+  setExportBusy(false);
+  $('exportProgress').hidden = true;
+
+  const canPreview = !!blobWebm;
+  previewVid.style.display = canPreview ? 'block' : 'none';
+  $('noPreview').hidden = canPreview;
+  if(canPreview){
+    fixPreviewDuration();
+    previewVid.src = URL.createObjectURL(blobWebm);
+  }
+  previewModal.style.display = 'flex';
+}
+
+function closePreview(){
+  previewModal.style.display = 'none';
+  previewVid.pause();
+  if(previewVid.src) URL.revokeObjectURL(previewVid.src);
+  previewVid.removeAttribute('src'); previewVid.load();
+  if(IS_DESKTOP && recId){ api.recDiscard(recId).catch(() => {}); } // drop the recovery copy
+  recId = null; diskOk = false; blobWebm = null; hasSaved = false;
+  viewEl.style.display = 'none';
+  disableDrawing();
+}
+
+// ── Save-As helper (web build: native file picker, falls back to <a download>) ─
 async function saveAs(blob, suggestedName){
   if('showSaveFilePicker' in window){
     const ext = suggestedName.split('.').pop();
@@ -792,8 +1518,8 @@ async function saveAs(blob, suggestedName){
       const ws = await fh.createWritable();
       await ws.write(blob);
       await ws.close();
-      return;
-    }catch(e){ if(e.name==='AbortError') return; }
+      return true;
+    }catch(e){ if(e.name === 'AbortError') return false; }
   }
   // Fallback for browsers without showSaveFilePicker
   const a = Object.assign(document.createElement('a'),{
@@ -801,48 +1527,148 @@ async function saveAs(blob, suggestedName){
     download: suggestedName
   });
   a.click();
-  URL.revokeObjectURL(a.href);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  return true;
 }
 
-// ── Preview modal ─────────────────────────────────────────────────────
-dlWebmBtn.addEventListener('click', async ()=>{
-  if(!blobWebm) return;
-  await saveAs(blobWebm, 'recording-'+Date.now()+'.webm');
-  closePreview();
-});
-dlMp4Btn.addEventListener('click', async ()=>{
-  if(!blobWebm || !window.electronAPI) return;
-  const prevLabel = dlMp4Btn.textContent;
-  dlMp4Btn.disabled = true;
-  dlMp4Btn.textContent = 'Converting…';
-  setStatus('Converting to MP4… this can take a moment for longer recordings');
-  try{
-    const buffer = await blobWebm.arrayBuffer();
-    const name = 'recording-'+Date.now()+'.mp4';
-    const result = await window.electronAPI.exportMp4(buffer, name);
-    if(result.canceled){
-      setStatus('Ready');
-    } else if(result.success){
-      setStatus('Saved: ' + result.path);
-      closePreview();
-    } else {
-      setStatus('MP4 export failed: ' + result.error);
-    }
-  } finally {
-    dlMp4Btn.disabled = false;
-    dlMp4Btn.textContent = prevLabel;
-  }
-});
-discardBtn.addEventListener('click', ()=>{
-  blobWebm = null;
-  closePreview();
-});
-function closePreview(){
-  previewModal.style.display = 'none';
-  URL.revokeObjectURL(previewVid.src); previewVid.src = '';
-  viewEl.style.display = 'none';
-  disableDrawing();
+// ── Export (desktop app → bundled ffmpeg) ─────────────────────────────
+function setExportBusy(busy){
+  exporting = busy;
+  [dlMp4Btn, dlGifBtn, dlWebmBtn].forEach(b => { b.disabled = busy || (!IS_DESKTOP && b !== dlWebmBtn); });
+  discardBtn.disabled = busy;
+  $('exportProgress').hidden = !busy;
 }
+function updateExportProgress(p){
+  const bar = $('exportBar'), wrap = $('exportBarWrap');
+  if(p && p.percent !== null && p.percent !== undefined){
+    wrap.classList.remove('indeterminate');
+    bar.style.width = p.percent.toFixed(0) + '%';
+    $('exportText').textContent = `Exporting… ${p.percent.toFixed(0)}%`;
+  } else {
+    wrap.classList.add('indeterminate');
+    $('exportText').textContent = 'Exporting…';
+  }
+}
+
+async function exportDesktop(format){
+  if(exporting || !IS_DESKTOP) return;
+  setExportBusy(true);
+  updateExportProgress(null);
+  setStatus(`Exporting ${format.toUpperCase()}… this can take a moment for longer recordings`);
+  const off = api.onExportProgress(updateExportProgress);
+  try{
+    const useDisk = !!(recId && diskOk);
+    if(!useDisk && !blobWebm) throw new Error('The recording is no longer available.');
+    const res = await api.exportMedia({
+      recId: useDisk ? recId : null,
+      buffer: useDisk ? undefined : await blobWebm.arrayBuffer(), // only if the disk copy failed
+      format,
+      trim: getTrim(),
+      fps: Number(fpsSelect.value) || 30,
+      bitrate: parseInt(qualitySelect.value),
+      gifFps: Number(gifFpsSelect.value) || 15,
+      gifWidth: Number(gifWidthSelect.value) || 0,
+      askWhere: askWhereChk.checked,
+      durationHint: recordedSeconds,
+    });
+    if(res.canceled){
+      setStatus('Ready');
+      if(res.cancelledExport) toast('Export cancelled');
+    } else if(res.success){
+      hasSaved = true; lastSavedPath = res.path;
+      discardBtn.textContent = '✔ Done';
+      setStatus('Saved: ' + res.path);
+      toast(`Saved ${res.path.split(/[\\/]/).pop()}`, 'Show in folder', () => api.reveal(res.path), 9000);
+    } else {
+      setStatus(`${format.toUpperCase()} export failed`);
+      toast(`${format.toUpperCase()} export failed: ${res.error}`, null, null, 12000);
+    }
+  }catch(err){
+    setStatus('Export failed');
+    toast('Export failed: ' + err.message, null, null, 12000);
+  }finally{
+    off();
+    setExportBusy(false);
+  }
+}
+
+dlWebmBtn.addEventListener('click', async () => {
+  if(IS_DESKTOP){ exportDesktop('webm'); return; }
+  if(!blobWebm) return;
+  if(await saveAs(blobWebm, `recording-${Date.now()}.webm`)) closePreview();
+});
+dlMp4Btn.addEventListener('click', () => exportDesktop('mp4'));
+dlGifBtn.addEventListener('click', () => exportDesktop('gif'));
+$('exportCancelBtn').addEventListener('click', () => api && api.cancelExport());
+discardBtn.addEventListener('click', () => {
+  if(!hasSaved && !confirm('Discard this recording? It has not been saved.')) return;
+  closePreview();
+});
+
+// ── Desktop: folders, global hotkeys, crash recovery ──────────────────
+if(IS_DESKTOP){
+  api.getConfig().then(cfg => {
+    $('saveDirLabel').textContent = cfg.saveDir;
+    $('saveDirLabel').title = cfg.saveDir;
+    if(cfg.platform !== 'win32'){
+      sysAudioChk.checked = false; sysAudioChk.disabled = true;
+      $('sysAudioLbl').classList.add('disabled');
+      $('sysAudioText').textContent = 'Record system audio (Windows only)';
+    } else {
+      $('sysAudioText').textContent = 'Record system audio';
+    }
+    const keys = cfg.hotkeys.map(h => `<kbd>${h.accelerator.replace('CommandOrControl','Ctrl').split('+').join('</kbd>+<kbd>')}</kbd> ${h.label}${h.registered ? '' : ' <i>(unavailable)</i>'}`);
+    $('globalKeys').innerHTML = 'Global (work from any app): ' + keys.join(' &nbsp; ');
+  }).catch(() => {});
+  $('chooseFolderBtn').addEventListener('click', async () => {
+    const r = await api.chooseFolder();
+    if(r && r.saveDir){ $('saveDirLabel').textContent = r.saveDir; $('saveDirLabel').title = r.saveDir; }
+  });
+  $('openFolderBtn').addEventListener('click', () => api.openFolder());
+
+  // A previous run died (or the app was closed on an unsaved preview): offer the footage back.
+  (async () => {
+    try{
+      const r = await api.recoveryCheck();
+      if(!r) return;
+      $('recoveryText').textContent = `Found an unsaved recording from ${new Date(r.startedAt).toLocaleString()} (${fmtSize(r.bytes)}).`;
+      $('recoveryBanner').hidden = false;
+      $('recoverBtn').onclick = async () => {
+        const data = await api.recRead(r.id);
+        if(!data || !data.ok){ toast('That recording could not be loaded.'); return; }
+        $('recoveryBanner').hidden = true;
+        recId = r.id; diskOk = true; recordedSeconds = 0; // true length is unknown; trimming still works
+        blobWebm = data.tooLarge ? null : new Blob([data.buffer], { type: 'video/webm' });
+        showPreview({ sizeBytes: data.bytes });
+      };
+      $('recoveryDeleteBtn').onclick = async () => {
+        if(!confirm('Permanently delete this recovered recording?')) return;
+        await api.recDiscard(r.id);
+        $('recoveryBanner').hidden = true;
+      };
+    }catch(_){ /* nothing to recover */ }
+  })();
+} else {
+  $('sysAudioText').textContent = 'Also share tab audio';
+  // The web build has no "are you sure you want to quit?" dialog of its own.
+  window.addEventListener('beforeunload', e => {
+    if(recState !== 'idle' || (previewModal.style.display === 'flex' && !hasSaved)){ e.preventDefault(); e.returnValue = ''; }
+  });
+}
+
+// Called by the main process for global hotkeys and the tray menu (with a user gesture,
+// which getDisplayMedia() requires).
+window.__srpAction = action => {
+  const active = recState === 'recording' || recState === 'paused';
+  if(action === 'toggle'){
+    if(active) stop();
+    else if(recState === 'idle') start();
+  } else if(action === 'pause'){
+    if(recState === 'recording') pause(); else if(recState === 'paused') resume();
+  } else if(action === 'screenshot'){
+    if(active) takeScreenshot();
+  }
+};
 
 // ── Event wiring ──────────────────────────────────────────────────────
 startBtn.addEventListener('click',       start);
@@ -852,13 +1678,31 @@ stopBtn.addEventListener('click',        stop);
 screenshotBtn.addEventListener('click',  takeScreenshot);
 
 document.addEventListener('keydown', e => {
-  if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-  if(e.code === 'Space' && !startBtn.disabled){
-    e.preventDefault();
-    recWebm?.state === 'paused' ? resume() : pause();
+  const tag = e.target.tagName;
+  // Typing in a field must never trigger a shortcut (checkboxes/radios are fine).
+  if(tag === 'SELECT' || tag === 'TEXTAREA' || (tag === 'INPUT' && !['radio','checkbox','button'].includes(e.target.type))) return;
+
+  if(sourceModal.style.display === 'flex'){
+    if(e.code === 'Escape') finishPicker(null);
+    return;
   }
-  if(e.code === 'Escape' && !stopBtn.disabled) stop();
-  if(e.code === 'KeyS'   && !screenshotBtn.disabled) takeScreenshot();
+  if(previewModal.style.display === 'flex') return;
+
+  const active = recState === 'recording' || recState === 'paused';
+  if(e.code === 'Space' && active){
+    e.preventDefault();
+    recState === 'paused' ? resume() : pause();
+  } else if(e.code === 'Escape'){
+    if(recState === 'starting') cancelStart = true;
+    else if(active) stop();
+  } else if(e.code === 'KeyS' && active && !e.ctrlKey && !e.metaKey){
+    takeScreenshot();
+  } else if(e.code === 'KeyM' && (active || recState === 'idle') && !e.ctrlKey && !e.metaKey){
+    toggleMic();
+  } else if((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && drawBar.style.display === 'flex'){
+    e.preventDefault();
+    undoAnno();
+  }
 });
 
 // ── URL auto-start ────────────────────────────────────────────────────
@@ -876,13 +1720,9 @@ document.addEventListener('keydown', e => {
   const map = { screen:'screen', camera:'camera', both:'both', cam:'camera', all:'both' };
   const mode = map[s.toLowerCase()];
   if(!mode) return;
-  // Select the matching radio
-  const radio = document.querySelector(`input[name="mode"][value="${mode}"]`);
-  if(radio){
-    radio.click(); // triggers mode-card UI update
-  }
+  setMode(mode);
   // Auto-start after a tiny delay so the page finishes rendering
-  setTimeout(()=> startBtn.click(), 400);
+  setTimeout(() => startBtn.click(), 400);
 })();
 </script>
 </body>
